@@ -1,0 +1,9 @@
+Hello, {{ user_name }}!
+
+{% if plan == "pro" %}
+Welcome to Pro! You have access to all features.
+{% else %}
+You're on the free plan. Upgrade now to unlock more features!
+{% endif %}
+
+Plan: {{ plan }}

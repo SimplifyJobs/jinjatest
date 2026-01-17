@@ -1,0 +1,17 @@
+# {{ title }}
+
+{{ description }}
+
+## Features
+
+{% for feature in features %}
+- {{ feature }}
+{% endfor %}
+
+## Pricing
+
+{% if plan == "pro" %}
+$99/month - All features included
+{% else %}
+Free tier - Limited features
+{% endif %}

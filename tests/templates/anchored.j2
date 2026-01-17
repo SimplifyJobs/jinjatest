@@ -1,0 +1,19 @@
+{{ jt.anchor("system") }}
+System rules:
+- Be helpful
+- Be concise
+
+{{ jt.anchor("user") }}
+User: {{ user_name }}
+Request: {{ request }}
+
+{{ jt.anchor("context") }}
+{% if context_items %}
+Context:
+{% for item in context_items %}
+- {{ item }}
+{% endfor %}
+{% else %}
+{{ jt.trace("no_context") }}
+No additional context provided.
+{% endif %}

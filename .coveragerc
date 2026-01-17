@@ -1,0 +1,20 @@
+[run]
+source = jinjatest
+branch = True
+omit =
+    */tests/*
+    */__pycache__/*
+    */__init__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:
+    from __future__ import
+    @(abc\.)?abstractmethod
+    class \w+\(Exception\):
+    @dataclass
+    @overload

@@ -151,23 +151,23 @@ Test specific sections without fragile delimiters:
 
 ```jinja2
 {# prompts/chat.j2 #}
-{{ jt.anchor("system") }}
+{#jt:anchor:system#}
 System rules:
 - Be helpful
 - Be concise
 
-{{ jt.anchor("user") }}
+{#jt:anchor:user#}
 User: {{ user_name }}
 Request: {{ request }}
 
-{{ jt.anchor("context") }}
+{#jt:anchor:context#}
 {% if context_items %}
 Context:
 {% for item in context_items %}
 - {{ item }}
 {% endfor %}
 {% else %}
-{{ jt.trace("no_context") }}
+{#jt:trace:no_context#}
 No additional context.
 {% endif %}
 ```
@@ -232,16 +232,18 @@ def test_prompt_builder():
 # From file
 spec = TemplateSpec.from_file(
     "template.j2",
-    context_model=MyModel,      # Optional Pydantic model
-    template_dir="templates/",  # Optional base directory
-    strict_undefined=True,      # Default: True
-    test_mode=True,             # Enable instrumentation
+    context_model=MyModel,       # Optional Pydantic model
+    template_dir="templates/",   # Optional base directory
+    strict_undefined=True,       # Default: True
+    test_mode=True,              # Enable instrumentation
+    use_comment_markers=True,    # Transform {#jt:...#} comments (default: True)
 )
 
 # From string
 spec = TemplateSpec.from_string(
     "Hello {{ name }}!",
     context_model=MyModel,
+    use_comment_markers=True,    # Transform {#jt:...#} comments (default: True)
 )
 
 # Render
@@ -321,11 +323,14 @@ a.snapshot("snapshot_name", update=False)
 
 ### Instrumentation
 
-In templates:
+In templates, use comment-based markers to define sections and trace events:
+
 ```jinja2
-{{ jt.anchor("section_name") }}  {# Mark section start #}
-{{ jt.trace("event_name") }}     {# Record trace event #}
+{#jt:anchor:section_name#}  {# Mark section start #}
+{#jt:trace:event_name#}     {# Record trace event #}
 ```
+
+Comment markers are automatically transformed when `test_mode=True`. This allows jinjatest to be a dev-only dependency since the comments are valid Jinja syntax that render as empty strings in production.
 
 #### Using with Any Jinja Environment
 
@@ -333,25 +338,25 @@ You can add instrumentation to any Jinja environment using `instrument()`:
 
 ```python
 from jinja2 import Environment, FileSystemLoader
-from jinjatest import instrument
+from jinjatest import TemplateSpec, instrument
 
 # Patch any existing Jinja environment
 env = Environment(loader=FileSystemLoader("templates/"))
-inst = instrument(env)  # Adds `jt` global
+instrument(env)  # Adds `jt` global
 
-# Now templates can use {{ jt.anchor("x") }} and {{ jt.trace("y") }}
-template = env.get_template("my_template.j2")
-result = template.render({"name": "World"})
+# Load template with comment markers transformed
+spec = TemplateSpec.from_file("my_template.j2", env=env)
+rendered = spec.render({"name": "World"})
 
 # Check traces after rendering
-if inst.has_trace("some_event"):
+if rendered.has_trace("some_event"):
     print("Event was triggered")
 
-# For production, use test_mode=False (anchors/traces become no-ops)
+# For production, use test_mode=False (markers become no-ops)
 instrument(env, test_mode=False)
 ```
 
-This is useful when you want to add instrumentation to an existing Jinja setup without using `TemplateSpec`.
+This is useful when you want to add instrumentation to an existing Jinja setup.
 
 ## Pytest Integration
 

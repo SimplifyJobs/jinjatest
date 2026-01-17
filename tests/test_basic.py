@@ -1887,3 +1887,167 @@ class TestAnchorIndexFromTextWithAnchors:
 
         body = index.get_section("body")
         assert "Body content" in body
+
+
+class TestFromFileWithProvidedEnv:
+    """Tests for from_file when an environment is provided."""
+
+    @pytest.fixture
+    def template_dir(self, tmp_path: Path) -> Path:
+        """Create a nested template structure."""
+        # Create: tmp/prompts/feature/section/template.j2
+        nested = tmp_path / "prompts" / "feature" / "section"
+        nested.mkdir(parents=True)
+
+        template_file = nested / "template.j2"
+        template_file.write_text("Hello {{ name }}!")
+
+        return tmp_path / "prompts"
+
+    def test_from_file_with_env_preserves_path(self, template_dir: Path) -> None:
+        """When env is provided, full path should be preserved."""
+        from jinja2 import Environment, FileSystemLoader
+        from jinjatest import TemplateSpec, instrument
+
+        env = Environment(loader=FileSystemLoader(str(template_dir)))
+        instrument(env, test_mode=True)
+
+        # This should work - path relative to env's loader
+        spec = TemplateSpec.from_file("feature/section/template.j2", env=env)
+        rendered = spec.render({"name": "World"})
+
+        assert rendered.text == "Hello World!"
+
+    def test_from_file_with_env_reuses_instrumentation(
+        self, template_dir: Path
+    ) -> None:
+        """When env is already instrumented, should reuse instrumentation."""
+        from jinja2 import Environment, FileSystemLoader
+        from jinjatest import TemplateSpec, instrument
+
+        env = Environment(loader=FileSystemLoader(str(template_dir)))
+        original_inst = instrument(env, test_mode=True)
+
+        spec = TemplateSpec.from_file("feature/section/template.j2", env=env)
+
+        # Should be the same instrumentation instance
+        assert spec._instrumentation is original_inst
+
+    def test_from_file_without_env_uses_filename_only(self, template_dir: Path) -> None:
+        """When env is None, should use just filename with parent as loader."""
+        template_path = template_dir / "feature" / "section" / "template.j2"
+
+        # No env provided - should create one with loader at template's parent
+        spec = TemplateSpec.from_file(str(template_path))
+        rendered = spec.render({"name": "World"})
+
+        assert rendered.text == "Hello World!"
+
+    def test_from_file_with_env_instruments_if_needed(self, template_dir: Path) -> None:
+        """When env is provided but not instrumented, should add instrumentation."""
+        from jinja2 import Environment, FileSystemLoader
+        from jinjatest import TemplateSpec
+
+        env = Environment(loader=FileSystemLoader(str(template_dir)))
+        # Note: NOT calling instrument(env) here
+
+        spec = TemplateSpec.from_file("feature/section/template.j2", env=env)
+
+        # Should have added instrumentation
+        assert "jt" in env.globals
+        assert spec._instrumentation is not None
+
+
+class TestFromFileWithTemplateDir:
+    """Tests for from_file with explicit template_dir."""
+
+    @pytest.fixture
+    def template_structure(self, tmp_path: Path) -> Path:
+        """Create template structure."""
+        prompts = tmp_path / "prompts"
+        nested = prompts / "v2" / "chat"
+        nested.mkdir(parents=True)
+
+        (nested / "system.j2").write_text("System: {{ mode }}")
+        (nested / "user.j2").write_text("User: {{ input }}")
+
+        return prompts
+
+    def test_from_file_with_template_dir(self, template_structure: Path) -> None:
+        """template_dir should set the loader root."""
+        spec = TemplateSpec.from_file(
+            "v2/chat/system.j2",
+            template_dir=template_structure,
+        )
+        rendered = spec.render({"mode": "helpful"})
+
+        assert rendered.text == "System: helpful"
+
+    def test_from_file_template_dir_ignored_when_env_provided(
+        self, template_structure: Path
+    ) -> None:
+        """template_dir should be ignored when env is provided."""
+        from jinja2 import Environment, FileSystemLoader
+        from jinjatest import TemplateSpec, instrument
+
+        env = Environment(loader=FileSystemLoader(str(template_structure)))
+        instrument(env, test_mode=True)
+
+        # template_dir is provided but should be ignored since env is provided
+        spec = TemplateSpec.from_file(
+            "v2/chat/system.j2",
+            env=env,
+            template_dir="/some/other/path",  # Should be ignored
+        )
+        rendered = spec.render({"mode": "helpful"})
+
+        assert rendered.text == "System: helpful"
+
+
+class TestFromFileWithCommentMarkersAndProvidedEnv:
+    """Tests for from_file with comment markers when env is provided."""
+
+    @pytest.fixture
+    def template_with_markers(self, tmp_path: Path) -> Path:
+        """Create a template with comment markers in a nested structure."""
+        nested = tmp_path / "prompts" / "v2"
+        nested.mkdir(parents=True)
+
+        template_file = nested / "marked.j2"
+        template_file.write_text(
+            "{#jt:anchor:greeting#}Hello {{ name }}!{#jt:trace:rendered#}"
+        )
+
+        return tmp_path / "prompts"
+
+    def test_from_file_with_env_and_markers(self, template_with_markers: Path) -> None:
+        """Test that comment markers work when env is provided."""
+        from jinja2 import Environment, FileSystemLoader
+        from jinjatest import TemplateSpec, instrument
+
+        env = Environment(loader=FileSystemLoader(str(template_with_markers)))
+        instrument(env, test_mode=True)
+
+        spec = TemplateSpec.from_file("v2/marked.j2", env=env)
+        rendered = spec.render({"name": "World"})
+
+        assert "Hello World!" in rendered.text
+        # Check that trace was recorded
+        assert rendered.has_trace("rendered")
+
+    def test_from_file_with_env_no_loader_raises(self) -> None:
+        """Test that error is raised when env has no loader and markers are used."""
+        from jinja2 import Environment
+        from jinjatest import TemplateSpec, TemplateRenderError
+
+        env = Environment()  # No loader
+
+        with pytest.raises(TemplateRenderError) as exc_info:
+            TemplateSpec.from_file(
+                "some/path/template.j2",
+                env=env,
+                use_comment_markers=True,
+                test_mode=True,
+            )
+
+        assert "no loader" in str(exc_info.value)

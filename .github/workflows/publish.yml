@@ -16,14 +16,14 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv python install ${{ matrix.python-version }}
       - run: uv sync --all-extras --dev
-      - run: uv run pytest --cov=jinjatest --cov-fail-under=90
+      - run: uv run coverage run -m pytest -q && uv run coverage report --fail-under=90
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
-      - run: uv sync --dev
+      - run: uv sync --all-extras --dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 

@@ -35,6 +35,14 @@ from jinjatest.instrumentation import (
     create_instrumentation,
     instrument,
 )
+from jinjatest.markers import (
+    MarkerTransform,
+    TemplateMarkers,
+    discover_markers,
+    has_markers,
+    load_template_with_markers,
+    transform_markers,
+)
 from jinjatest.parsers import (
     FencedBlock,
     JSONParseError,
@@ -94,6 +102,13 @@ __all__ = [
     "ProductionInstrumentation",
     "TraceRecorder",
     "AnchorIndex",
+    # Markers (comment-based)
+    "transform_markers",
+    "has_markers",
+    "discover_markers",
+    "load_template_with_markers",
+    "MarkerTransform",
+    "TemplateMarkers",
     # Utilities
     "normalize_text",
 ]

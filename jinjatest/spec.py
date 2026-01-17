@@ -30,6 +30,7 @@ from jinjatest.instrumentation import (
     create_instrumentation,
     instrument,
 )
+from jinjatest.markers import transform_markers
 from jinjatest.rendered import RenderedPrompt
 
 # Type alias for instrumentation
@@ -181,6 +182,7 @@ class TemplateSpec(Generic[TContext]):
         env: Environment,
         context_model: type[TContext] | None = None,
         instrumentation: Instrumentation | None = None,
+        source: str | None = None,
     ) -> None:
         """Initialize a TemplateSpec.
 
@@ -189,6 +191,7 @@ class TemplateSpec(Generic[TContext]):
             env: The Jinja Environment.
             context_model: Optional Pydantic model for context validation.
             instrumentation: Optional instrumentation for anchors/traces.
+            source: Optional original template source (used for AST analysis).
         """
         self._template = template
         self._env = env
@@ -196,6 +199,7 @@ class TemplateSpec(Generic[TContext]):
         self._instrumentation: Instrumentation = (
             instrumentation or create_instrumentation(test_mode=True)
         )
+        self._source = source
 
     @classmethod
     def from_string(
@@ -205,6 +209,7 @@ class TemplateSpec(Generic[TContext]):
         context_model: type[TContext] | None = None,
         env: Environment | None = None,
         test_mode: bool = True,
+        use_comment_markers: bool = True,
         **env_kwargs: Any,
     ) -> TemplateSpec[TContext]:
         """Create a TemplateSpec from a template string.
@@ -214,11 +219,18 @@ class TemplateSpec(Generic[TContext]):
             context_model: Optional Pydantic model for context validation.
             env: Optional pre-configured Environment.
             test_mode: If True, enable instrumentation.
+            use_comment_markers: If True, transform {#jt:...#} comments to function calls.
+                Only applies when test_mode is True. Default True.
             **env_kwargs: Arguments passed to create_environment if env is None.
 
         Returns:
             A configured TemplateSpec.
         """
+        # Transform comment markers if enabled and in test mode
+        if use_comment_markers and test_mode:
+            transform_result = transform_markers(source)
+            source = transform_result.source
+
         if env is None:
             env = create_environment(**env_kwargs)
 
@@ -240,6 +252,7 @@ class TemplateSpec(Generic[TContext]):
         context_model: type[TContext] | None = None,
         env: Environment | None = None,
         test_mode: bool = True,
+        use_comment_markers: bool = True,
         template_dir: str | Path | None = None,
         **env_kwargs: Any,
     ) -> TemplateSpec[TContext]:
@@ -250,6 +263,8 @@ class TemplateSpec(Generic[TContext]):
             context_model: Optional Pydantic model for context validation.
             env: Optional pre-configured Environment.
             test_mode: If True, enable instrumentation.
+            use_comment_markers: If True, transform {#jt:...#} comments to function calls.
+                Only applies when test_mode is True. Default True.
             template_dir: Base directory for template loading. If None, uses parent of path.
             **env_kwargs: Arguments passed to create_environment if env is None.
 
@@ -273,15 +288,29 @@ class TemplateSpec(Generic[TContext]):
 
         instrumentation = instrument(env, test_mode=test_mode)
 
-        # Get template name relative to loader
-        template_name = path.name
-        template = env.get_template(template_name)
+        # If using comment markers and in test mode, read and transform the source
+        original_source: str | None = None
+        if use_comment_markers and test_mode:
+            # Read the raw source from file
+            full_path = path if path.is_absolute() else Path(template_dir or ".") / path
+            original_source = full_path.read_text()
+
+            # Transform markers
+            transform_result = transform_markers(original_source)
+
+            # Compile from transformed source
+            template = env.from_string(transform_result.source)
+        else:
+            # Get template name relative to loader
+            template_name = path.name
+            template = env.get_template(template_name)
 
         return cls(
             template,
             env=env,
             context_model=context_model,
             instrumentation=instrumentation if test_mode else None,
+            source=original_source,
         )
 
     @property
@@ -434,14 +463,20 @@ class TemplateSpec(Generic[TContext]):
         Returns:
             Set of variable names used in the template.
         """
-        template_name = self._template.name
-        if not self._env.loader or not template_name:
-            # For templates from string, we need to access the source differently
-            # This is a limitation - we can't easily get source from compiled template
-            return set()
+        source: str | None = None
 
-        source = self._env.loader.get_source(self._env, template_name)[0]
+        # First, try to use stored source (from comment marker transformation)
+        if self._source:
+            source = self._source
+        else:
+            # Fall back to loading from template loader
+            template_name = self._template.name
+            if self._env.loader and template_name:
+                source = self._env.loader.get_source(self._env, template_name)[0]
+
         if not source:
+            # For templates from string without stored source,
+            # we can't easily get source from compiled template
             return set()
 
         ast = self._env.parse(source)

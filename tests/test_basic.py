@@ -138,6 +138,28 @@ class TestJsonParsing:
         data = rendered.as_json()
         assert data == {"name": "Test", "active": True}
 
+    def test_as_json_with_comments(self) -> None:
+        """Test parsing JSON with comments when allow_comments=True."""
+        spec = TemplateSpec.from_string("""{
+            // This is a comment
+            "name": "{{ name }}",
+            "value": 42  /* inline comment */
+        }""")
+        rendered = spec.render({"name": "Test"})
+
+        data = rendered.as_json(allow_comments=True)
+        assert data == {"name": "Test", "value": 42}
+
+    def test_as_json_rejects_comments_by_default(self) -> None:
+        """Test that comments cause parse error by default."""
+        from jinjatest.parsers.json_parser import JSONParseError
+
+        spec = TemplateSpec.from_string('{"key": "value"} // comment')
+        rendered = spec.render({})
+
+        with pytest.raises(JSONParseError):
+            rendered.as_json()
+
 
 class TestProUsers:
     """Test pro user scenarios from the spec."""

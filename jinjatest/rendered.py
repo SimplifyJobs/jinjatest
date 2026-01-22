@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from jinjatest.instrumentation import AnchorIndex
@@ -170,8 +171,13 @@ class RenderedPrompt:
 
     # Parsing methods
 
-    def as_json(self) -> Any:
+    def as_json(self, *, allow_comments: bool = False) -> Any:
         """Parse the rendered text as JSON.
+
+        Args:
+            allow_comments: If True, strip C-style comments (// and /* */)
+                before parsing. Useful for JSONC-style configuration files.
+                Default is False for strict JSON compliance.
 
         Returns:
             The parsed JSON value.
@@ -179,7 +185,7 @@ class RenderedPrompt:
         Raises:
             JSONParseError: If parsing fails.
         """
-        return parse_json(self.clean_text)
+        return parse_json(self.clean_text, allow_comments=allow_comments)
 
     def as_yaml(self) -> Any:
         """Parse the rendered text as YAML.
@@ -236,8 +242,13 @@ class RenderedPrompt:
 
     # Fenced code block parsing methods
 
-    def as_json_blocks(self) -> list[Any]:
+    def as_json_blocks(self, *, allow_comments: bool = False) -> list[Any]:
         """Extract and parse all ```json fenced code blocks.
+
+        Args:
+            allow_comments: If True, strip C-style comments (// and /* */)
+                before parsing. Useful for JSONC-style configuration files.
+                Default is False for strict JSON compliance.
 
         Returns:
             List of parsed JSON objects, one per block found.
@@ -245,7 +256,8 @@ class RenderedPrompt:
         Raises:
             JSONParseError: If any block contains invalid JSON.
         """
-        return parse_fenced_blocks(self.clean_text, "json", parse_json)
+        parser = partial(parse_json, allow_comments=allow_comments)
+        return parse_fenced_blocks(self.clean_text, "json", parser)
 
     def as_yaml_blocks(self) -> list[Any]:
         """Extract and parse all ```yaml fenced code blocks.

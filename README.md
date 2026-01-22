@@ -266,6 +266,7 @@ rendered.normalized_lines # List of normalized lines
 
 # Parsing - Full Document
 rendered.as_json()               # Parse as JSON
+rendered.as_json(allow_comments=True)  # Parse JSON with // and /* */ comments
 rendered.as_yaml()               # Parse as YAML (requires pyyaml)
 rendered.as_xml(strict=False)    # Parse as XML (strict=True for single root)
 rendered.as_markdown_sections()  # Parse markdown headings
@@ -273,6 +274,7 @@ rendered.markdown_section("title") # Find markdown section by title
 
 # Parsing - Fenced Code Blocks
 rendered.as_json_blocks()        # Extract all ```json blocks
+rendered.as_json_blocks(allow_comments=True)  # With comment support
 rendered.as_yaml_blocks()        # Extract all ```yaml blocks
 rendered.as_xml_blocks()         # Extract all ```xml blocks
 

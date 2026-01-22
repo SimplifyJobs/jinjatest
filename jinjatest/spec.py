@@ -28,7 +28,6 @@ from jinjatest.instrumentation import (
     ProductionInstrumentation,
     TestInstrumentation,
     create_instrumentation,
-    instrument,
 )
 from jinjatest.markers import transform_markers
 from jinjatest.rendered import RenderedPrompt
@@ -234,7 +233,8 @@ class TemplateSpec(Generic[TContext]):
         if env is None:
             env = create_environment(**env_kwargs)
 
-        instrumentation = instrument(env, test_mode=test_mode)
+        instrumentation = create_instrumentation(test_mode=test_mode)
+        env.globals["jt"] = instrumentation
 
         template = env.from_string(source)
         return cls(
@@ -292,7 +292,8 @@ class TemplateSpec(Generic[TContext]):
             template_paths = [template_dir] + [Path(p) for p in template_paths]
 
             env = create_environment(template_paths=template_paths, **env_kwargs)
-            instrumentation = instrument(env, test_mode=test_mode)
+            instrumentation = create_instrumentation(test_mode=test_mode)
+            env.globals["jt"] = instrumentation
         else:
             # For provided env, check if already instrumented
             existing_jt = env.globals.get("jt")
@@ -301,7 +302,8 @@ class TemplateSpec(Generic[TContext]):
             ):
                 instrumentation = existing_jt
             else:
-                instrumentation = instrument(env, test_mode=test_mode)
+                instrumentation = create_instrumentation(test_mode=test_mode)
+                env.globals["jt"] = instrumentation
 
         # Determine template name based on how env was obtained
         # When env is provided or template_dir is explicitly set, use full path

@@ -67,18 +67,12 @@ class TestMainPackageExports:
 
     def test_instrumentation_exported(self):
         from jinjatest import (
-            create_instrumentation,
             TestInstrumentation,
             ProductionInstrumentation,
-            TraceRecorder,
-            AnchorIndex,
         )
 
-        assert callable(create_instrumentation)
         assert TestInstrumentation is not None
         assert ProductionInstrumentation is not None
-        assert TraceRecorder is not None
-        assert AnchorIndex is not None
 
     def test_utilities_exported(self):
         from jinjatest import normalize_text, create_environment

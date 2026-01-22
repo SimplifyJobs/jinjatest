@@ -11,5 +11,5 @@ lint-fix:
 test:
 	uv run pytest
 
-test-coverage:
+test-cov:
 	uv run coverage run -m pytest -q && uv run coverage report --fail-under=90

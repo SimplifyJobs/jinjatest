@@ -1907,10 +1907,12 @@ class TestFromFileWithProvidedEnv:
     def test_from_file_with_env_preserves_path(self, template_dir: Path) -> None:
         """When env is provided, full path should be preserved."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_dir)))
-        instrument(env, test_mode=True)
+        inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = inst
 
         # This should work - path relative to env's loader
         spec = TemplateSpec.from_file("feature/section/template.j2", env=env)
@@ -1923,10 +1925,12 @@ class TestFromFileWithProvidedEnv:
     ) -> None:
         """When env is already instrumented, should reuse instrumentation."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_dir)))
-        original_inst = instrument(env, test_mode=True)
+        original_inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = original_inst
 
         spec = TemplateSpec.from_file("feature/section/template.j2", env=env)
 
@@ -1988,10 +1992,12 @@ class TestFromFileWithTemplateDir:
     ) -> None:
         """template_dir should be ignored when env is provided."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_structure)))
-        instrument(env, test_mode=True)
+        inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = inst
 
         # template_dir is provided but should be ignored since env is provided
         spec = TemplateSpec.from_file(
@@ -2023,10 +2029,12 @@ class TestFromFileWithCommentMarkersAndProvidedEnv:
     def test_from_file_with_env_and_markers(self, template_with_markers: Path) -> None:
         """Test that comment markers work when env is provided."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_with_markers)))
-        instrument(env, test_mode=True)
+        inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = inst
 
         spec = TemplateSpec.from_file("v2/marked.j2", env=env)
         rendered = spec.render({"name": "World"})

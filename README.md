@@ -332,31 +332,24 @@ In templates, use comment-based markers to define sections and trace events:
 
 Comment markers are automatically transformed when `test_mode=True`. This allows jinjatest to be a dev-only dependency since the comments are valid Jinja syntax that render as empty strings in production.
 
-#### Using with Any Jinja Environment
-
-You can add instrumentation to any Jinja environment using `instrument()`:
+You can also use a pre-configured Jinja environment with `TemplateSpec`:
 
 ```python
 from jinja2 import Environment, FileSystemLoader
-from jinjatest import TemplateSpec, instrument
+from jinjatest import TemplateSpec
 
-# Patch any existing Jinja environment
+# Use your own Jinja environment
 env = Environment(loader=FileSystemLoader("templates/"))
-instrument(env)  # Adds `jt` global
+env.globals["my_filter"] = lambda x: x.upper()
 
-# Load template with comment markers transformed
+# TemplateSpec handles instrumentation automatically
 spec = TemplateSpec.from_file("my_template.j2", env=env)
 rendered = spec.render({"name": "World"})
 
 # Check traces after rendering
 if rendered.has_trace("some_event"):
     print("Event was triggered")
-
-# For production, use test_mode=False (markers become no-ops)
-instrument(env, test_mode=False)
 ```
-
-This is useful when you want to add instrumentation to an existing Jinja setup.
 
 ## Pytest Integration
 

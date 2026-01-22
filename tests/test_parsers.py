@@ -69,6 +69,52 @@ class TestJsonParser:
         result = parse_json('{"outer": {"inner": [1, 2, 3]}}')
         assert result == {"outer": {"inner": [1, 2, 3]}}
 
+    def test_parse_json_with_single_line_comments(self):
+        """Test parsing JSON with // comments when allow_comments=True."""
+        json_text = """{
+            // This is a comment
+            "name": "Alice",
+            "age": 30  // inline comment
+        }"""
+        result = parse_json(json_text, allow_comments=True)
+        assert result == {"name": "Alice", "age": 30}
+
+    def test_parse_json_with_multi_line_comments(self):
+        """Test parsing JSON with /* */ comments when allow_comments=True."""
+        json_text = """{
+            /* This is a
+               multi-line comment */
+            "name": "Bob",
+            "active": true
+        }"""
+        result = parse_json(json_text, allow_comments=True)
+        assert result == {"name": "Bob", "active": True}
+
+    def test_parse_json_with_mixed_comments(self):
+        """Test parsing JSON with both comment styles when allow_comments=True."""
+        json_text = """{
+            // Single line comment
+            "items": [
+                /* block comment */ 1,
+                2,  // trailing comment
+                3
+            ]
+        }"""
+        result = parse_json(json_text, allow_comments=True)
+        assert result == {"items": [1, 2, 3]}
+
+    def test_parse_json_comments_disabled_by_default(self):
+        """Test that comments cause parse error when allow_comments=False (default)."""
+        json_text = '{"key": "value"} // comment'
+        with pytest.raises(JSONParseError):
+            parse_json(json_text)
+
+    def test_parse_json_allow_comments_false_explicit(self):
+        """Test that allow_comments=False rejects comments."""
+        json_text = '{"key": "value"} // comment'
+        with pytest.raises(JSONParseError):
+            parse_json(json_text, allow_comments=False)
+
 
 class TestYamlParser:
     """Tests for YAML parser."""

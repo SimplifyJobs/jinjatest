@@ -2,8 +2,151 @@
 
 import pytest
 
-from jinjatest.parsers.json_parser import JSONParseError, parse_json
+from jinjatest.parsers.json_parser import (
+    JSONParseError,
+    _strip_json_comments,
+    parse_json,
+)
 from jinjatest.parsers.yaml_parser import YAMLParseError, parse_yaml
+
+
+class TestStripJsonComments:
+    """Tests for _strip_json_comments function with edge cases."""
+
+    def test_no_comments(self):
+        """Plain JSON without comments passes through unchanged."""
+        text = '{"key": "value"}'
+        assert _strip_json_comments(text) == text
+
+    def test_single_line_comment_at_end(self):
+        """Single-line comment at end of line is removed."""
+        text = '{"key": "value"} // comment'
+        assert _strip_json_comments(text) == '{"key": "value"} '
+
+    def test_single_line_comment_own_line(self):
+        """Single-line comment on its own line is removed."""
+        text = '{\n// comment\n"key": "value"\n}'
+        assert _strip_json_comments(text) == '{\n\n"key": "value"\n}'
+
+    def test_multi_line_comment(self):
+        """Multi-line comment is removed."""
+        text = '{"key": /* comment */ "value"}'
+        assert _strip_json_comments(text) == '{"key":  "value"}'
+
+    def test_multi_line_comment_spanning_lines(self):
+        """Multi-line comment spanning multiple lines is removed."""
+        text = '{\n/* line1\nline2\nline3 */\n"key": "value"}'
+        assert _strip_json_comments(text) == '{\n\n"key": "value"}'
+
+    def test_url_in_string_preserved(self):
+        """URLs inside strings are not corrupted."""
+        text = '{"url": "https://example.com/path"}'
+        assert _strip_json_comments(text) == text
+
+    def test_double_slash_in_string_preserved(self):
+        """Double slashes inside strings are preserved."""
+        text = '{"note": "use // for comments"}'
+        assert _strip_json_comments(text) == text
+
+    def test_block_comment_pattern_in_string_preserved(self):
+        """Block comment patterns inside strings are preserved."""
+        text = '{"note": "use /* */ for blocks"}'
+        assert _strip_json_comments(text) == text
+
+    def test_escaped_quote_in_string(self):
+        """Escaped quotes inside strings don't break parsing."""
+        text = r'{"say": "hello \"world\"", "x": 1} // comment'
+        result = _strip_json_comments(text)
+        assert result == r'{"say": "hello \"world\"", "x": 1} '
+
+    def test_escaped_quote_followed_by_comment_pattern(self):
+        """Escaped quote followed by // doesn't start a comment."""
+        text = r'{"msg": "say \"hi\" // ok"}'
+        assert _strip_json_comments(text) == text
+
+    def test_backslash_in_string(self):
+        """Backslashes in strings are handled correctly."""
+        text = r'{"path": "C:\\Users\\name"}'
+        assert _strip_json_comments(text) == text
+
+    def test_empty_string_with_comment_after(self):
+        """Empty string followed by comment."""
+        text = '{"empty": ""} // comment'
+        assert _strip_json_comments(text) == '{"empty": ""} '
+
+    def test_multiple_strings_same_line(self):
+        """Multiple strings on same line with comment."""
+        text = '{"a": "x", "b": "y"} // comment'
+        assert _strip_json_comments(text) == '{"a": "x", "b": "y"} '
+
+    def test_string_with_newline_escape(self):
+        """String containing escaped newline."""
+        text = r'{"text": "line1\nline2"} // comment'
+        assert _strip_json_comments(text) == r'{"text": "line1\nline2"} '
+
+    def test_consecutive_single_line_comments(self):
+        """Multiple single-line comments in a row."""
+        text = '{\n// comment 1\n// comment 2\n"key": "value"}'
+        assert _strip_json_comments(text) == '{\n\n\n"key": "value"}'
+
+    def test_consecutive_slashes_outside_string(self):
+        """//// is treated as comment starting with //."""
+        text = '{"key": "value"} //// comment'
+        assert _strip_json_comments(text) == '{"key": "value"} '
+
+    def test_empty_block_comment(self):
+        """Empty block comment /**/ is removed."""
+        text = '{"key": /**/ "value"}'
+        assert _strip_json_comments(text) == '{"key":  "value"}'
+
+    def test_nested_comment_pattern_in_block(self):
+        """// inside /* */ is part of the block comment."""
+        text = '{"key": /* // nested */ "value"}'
+        assert _strip_json_comments(text) == '{"key":  "value"}'
+
+    def test_comment_at_very_start(self):
+        """Comment at the very start of input."""
+        text = '// comment\n{"key": "value"}'
+        assert _strip_json_comments(text) == '\n{"key": "value"}'
+
+    def test_comment_at_very_end(self):
+        """Comment at the very end with no newline."""
+        text = '{"key": "value"} // comment'
+        assert _strip_json_comments(text) == '{"key": "value"} '
+
+    def test_only_comments(self):
+        """Input that is only comments."""
+        text = "// comment 1\n/* comment 2 */"
+        assert _strip_json_comments(text) == "\n"
+
+    def test_string_ending_with_backslash_before_real_quote(self):
+        """String with backslash that is NOT escaping the closing quote."""
+        # In JSON: "foo\\" means the string "foo\" (backslash at end)
+        # The \\\\ in Python raw string = \\ in actual string = \ in JSON string value
+        text = r'{"path": "foo\\"} // comment'
+        result = _strip_json_comments(text)
+        # The comment should be removed
+        assert result == r'{"path": "foo\\"} '
+
+    def test_complex_mixed_case(self):
+        """Complex case with multiple strings, escapes, and comments."""
+        text = """{
+            // Config file
+            "url": "https://example.com",  /* API endpoint */
+            "pattern": "use // for docs",
+            "escape": "say \\"hello\\"",
+            "path": "C:\\\\Users"  // Windows path
+        }"""
+        result = _strip_json_comments(text)
+        # Verify strings are intact
+        assert '"url": "https://example.com"' in result
+        assert '"pattern": "use // for docs"' in result
+        assert r'"escape": "say \"hello\""' in result
+        assert r'"path": "C:\\Users"' in result
+        # Verify comments are removed
+        assert "// Config file" not in result
+        assert "/* API endpoint */" not in result
+        assert "// Windows path" not in result
 
 
 class TestJsonParser:
@@ -114,6 +257,35 @@ class TestJsonParser:
         json_text = '{"key": "value"} // comment'
         with pytest.raises(JSONParseError):
             parse_json(json_text, allow_comments=False)
+
+    def test_parse_json_preserves_url_in_string(self):
+        """Test that URLs inside strings are not corrupted by comment stripping."""
+        json_text = '{"url": "https://example.com/path"}'
+        result = parse_json(json_text, allow_comments=True)
+        assert result == {"url": "https://example.com/path"}
+
+    def test_parse_json_preserves_comment_like_patterns_in_strings(self):
+        """Test that // and /* inside strings are preserved."""
+        json_text = """{
+            "note": "Use // for single-line comments",
+            "other": "And /* */ for blocks"
+        }"""
+        result = parse_json(json_text, allow_comments=True)
+        assert result["note"] == "Use // for single-line comments"
+        assert result["other"] == "And /* */ for blocks"
+
+    def test_parse_json_mixed_real_comments_and_string_patterns(self):
+        """Test real comments are removed but string content preserved."""
+        json_text = """{
+            // This comment should be removed
+            "url": "https://example.com",  /* also removed */
+            "desc": "Visit // our site"
+        }"""
+        result = parse_json(json_text, allow_comments=True)
+        assert result == {
+            "url": "https://example.com",
+            "desc": "Visit // our site",
+        }
 
 
 class TestYamlParser:

@@ -158,7 +158,7 @@ def load_template_with_markers(
 
     Example:
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import create_instrumentation
+        from jinjatest.instrumentation import create_instrumentation
         from jinjatest.markers import load_template_with_markers
 
         env = Environment(loader=FileSystemLoader("templates/"))

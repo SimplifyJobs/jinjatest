@@ -10,10 +10,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from jinja2 import Environment
 
 # Sentinel markers for anchors (using ASCII record separator character)
 ANCHOR_START = "\x1e"
@@ -171,44 +167,3 @@ def create_instrumentation(
     if test_mode:
         return TestInstrumentation()
     return ProductionInstrumentation()
-
-
-def instrument(
-    env: Environment,
-    *,
-    test_mode: bool = True,
-    global_name: str = "jt",
-) -> TestInstrumentation | ProductionInstrumentation:
-    """Patch a Jinja environment with instrumentation.
-
-    This function adds instrumentation to any Jinja environment, enabling
-    the use of anchors and traces in templates. Use this when you want to
-    add jinjatest instrumentation to an existing environment without using
-    TemplateSpec.
-
-    Args:
-        env: The Jinja Environment to instrument.
-        test_mode: If True, enable anchors/traces. If False, no-op mode.
-        global_name: Name of the template global variable (default: "jt").
-
-    Returns:
-        The instrumentation instance added to the environment.
-
-    Example:
-        from jinja2 import Environment, FileSystemLoader
-        from jinjatest import instrument
-
-        # Patch any Jinja environment
-        env = Environment(loader=FileSystemLoader("templates/"))
-        inst = instrument(env)
-
-        # Now templates can use {{ jt.anchor("section") }} and {{ jt.trace("event") }}
-        template = env.get_template("my_template.j2")
-        result = template.render({"name": "World"})
-
-        # In production, use test_mode=False for no-op instrumentation
-        instrument(env, test_mode=False)
-    """
-    inst = create_instrumentation(test_mode=test_mode)
-    env.globals[global_name] = inst
-    return inst

@@ -6,14 +6,9 @@ from pathlib import Path
 import pytest
 from jinja2 import Environment, FileSystemLoader
 
-from jinjatest import (
-    TemplateSpec,
-    discover_markers,
-    has_markers,
-    instrument,
-    load_template_with_markers,
-    transform_markers,
-)
+from jinjatest import TemplateSpec, discover_markers, has_markers
+from jinjatest.instrumentation import create_instrumentation
+from jinjatest.markers import load_template_with_markers, transform_markers
 
 
 class TestMarkerTransformation:
@@ -315,7 +310,8 @@ System prompt
             )
 
             env = Environment(loader=FileSystemLoader(tmpdir))
-            inst = instrument(env)
+            inst = create_instrumentation(test_mode=True)
+            env.globals["jt"] = inst
 
             template = load_template_with_markers(env, "prompt.j2", inst)
             result = template.render({"user_input": "Hello"})

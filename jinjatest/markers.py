@@ -158,11 +158,12 @@ def load_template_with_markers(
 
     Example:
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import instrument
+        from jinjatest.instrumentation import create_instrumentation
         from jinjatest.markers import load_template_with_markers
 
         env = Environment(loader=FileSystemLoader("templates/"))
-        inst = instrument(env)
+        inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = inst
         template = load_template_with_markers(env, "my_prompt.j2", inst)
         result = template.render({"name": "World"})
     """

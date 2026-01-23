@@ -28,20 +28,13 @@ from __future__ import annotations
 
 from jinjatest.asserts import PromptAssertionError, PromptAsserts, assert_no_undefined
 from jinjatest.instrumentation import (
-    AnchorIndex,
     ProductionInstrumentation,
     TestInstrumentation,
-    TraceRecorder,
-    create_instrumentation,
-    instrument,
 )
 from jinjatest.markers import (
-    MarkerTransform,
     TemplateMarkers,
     discover_markers,
     has_markers,
-    load_template_with_markers,
-    transform_markers,
 )
 from jinjatest.parsers import (
     FencedBlock,
@@ -95,19 +88,12 @@ __all__ = [
     "extract_fenced_blocks",
     "parse_fenced_blocks",
     "FencedBlock",
-    # Instrumentation
-    "instrument",
-    "create_instrumentation",
+    # Instrumentation (for type hints)
     "TestInstrumentation",
     "ProductionInstrumentation",
-    "TraceRecorder",
-    "AnchorIndex",
     # Markers (comment-based)
-    "transform_markers",
     "has_markers",
     "discover_markers",
-    "load_template_with_markers",
-    "MarkerTransform",
     "TemplateMarkers",
     # Utilities
     "normalize_text",

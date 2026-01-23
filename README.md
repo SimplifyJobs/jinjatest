@@ -266,6 +266,7 @@ rendered.normalized_lines # List of normalized lines
 
 # Parsing - Full Document
 rendered.as_json()               # Parse as JSON
+rendered.as_json(allow_comments=True)  # Parse JSON with // and /* */ comments
 rendered.as_yaml()               # Parse as YAML (requires pyyaml)
 rendered.as_xml(strict=False)    # Parse as XML (strict=True for single root)
 rendered.as_markdown_sections()  # Parse markdown headings
@@ -273,6 +274,7 @@ rendered.markdown_section("title") # Find markdown section by title
 
 # Parsing - Fenced Code Blocks
 rendered.as_json_blocks()        # Extract all ```json blocks
+rendered.as_json_blocks(allow_comments=True)  # With comment support
 rendered.as_yaml_blocks()        # Extract all ```yaml blocks
 rendered.as_xml_blocks()         # Extract all ```xml blocks
 
@@ -332,31 +334,24 @@ In templates, use comment-based markers to define sections and trace events:
 
 Comment markers are automatically transformed when `test_mode=True`. This allows jinjatest to be a dev-only dependency since the comments are valid Jinja syntax that render as empty strings in production.
 
-#### Using with Any Jinja Environment
-
-You can add instrumentation to any Jinja environment using `instrument()`:
+You can also use a pre-configured Jinja environment with `TemplateSpec`:
 
 ```python
 from jinja2 import Environment, FileSystemLoader
-from jinjatest import TemplateSpec, instrument
+from jinjatest import TemplateSpec
 
-# Patch any existing Jinja environment
+# Use your own Jinja environment
 env = Environment(loader=FileSystemLoader("templates/"))
-instrument(env)  # Adds `jt` global
+env.globals["my_filter"] = lambda x: x.upper()
 
-# Load template with comment markers transformed
+# TemplateSpec handles instrumentation automatically
 spec = TemplateSpec.from_file("my_template.j2", env=env)
 rendered = spec.render({"name": "World"})
 
 # Check traces after rendering
 if rendered.has_trace("some_event"):
     print("Event was triggered")
-
-# For production, use test_mode=False (markers become no-ops)
-instrument(env, test_mode=False)
 ```
-
-This is useful when you want to add instrumentation to an existing Jinja setup.
 
 ## Pytest Integration
 

@@ -173,6 +173,23 @@ And more:
         assert blocks[0] == {"name": "Alice"}
         assert blocks[1] == {"name": "Bob"}
 
+    def test_as_json_blocks_with_comments(self):
+        template = """
+```json
+{
+    // User config
+    "name": "Alice",
+    "role": "admin"  /* important */
+}
+```
+"""
+        spec = TemplateSpec.from_string(template)
+        rendered = spec.render({})
+
+        blocks = rendered.as_json_blocks(allow_comments=True)
+        assert len(blocks) == 1
+        assert blocks[0] == {"name": "Alice", "role": "admin"}
+
     def test_as_yaml_blocks(self):
         template = """
 Config 1:

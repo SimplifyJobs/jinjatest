@@ -138,6 +138,28 @@ class TestJsonParsing:
         data = rendered.as_json()
         assert data == {"name": "Test", "active": True}
 
+    def test_as_json_with_comments(self) -> None:
+        """Test parsing JSON with comments when allow_comments=True."""
+        spec = TemplateSpec.from_string("""{
+            // This is a comment
+            "name": "{{ name }}",
+            "value": 42  /* inline comment */
+        }""")
+        rendered = spec.render({"name": "Test"})
+
+        data = rendered.as_json(allow_comments=True)
+        assert data == {"name": "Test", "value": 42}
+
+    def test_as_json_rejects_comments_by_default(self) -> None:
+        """Test that comments cause parse error by default."""
+        from jinjatest.parsers.json_parser import JSONParseError
+
+        spec = TemplateSpec.from_string('{"key": "value"} // comment')
+        rendered = spec.render({})
+
+        with pytest.raises(JSONParseError):
+            rendered.as_json()
+
 
 class TestProUsers:
     """Test pro user scenarios from the spec."""
@@ -1907,10 +1929,12 @@ class TestFromFileWithProvidedEnv:
     def test_from_file_with_env_preserves_path(self, template_dir: Path) -> None:
         """When env is provided, full path should be preserved."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_dir)))
-        instrument(env, test_mode=True)
+        inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = inst
 
         # This should work - path relative to env's loader
         spec = TemplateSpec.from_file("feature/section/template.j2", env=env)
@@ -1923,10 +1947,12 @@ class TestFromFileWithProvidedEnv:
     ) -> None:
         """When env is already instrumented, should reuse instrumentation."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_dir)))
-        original_inst = instrument(env, test_mode=True)
+        original_inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = original_inst
 
         spec = TemplateSpec.from_file("feature/section/template.j2", env=env)
 
@@ -1988,10 +2014,12 @@ class TestFromFileWithTemplateDir:
     ) -> None:
         """template_dir should be ignored when env is provided."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_structure)))
-        instrument(env, test_mode=True)
+        inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = inst
 
         # template_dir is provided but should be ignored since env is provided
         spec = TemplateSpec.from_file(
@@ -2023,10 +2051,12 @@ class TestFromFileWithCommentMarkersAndProvidedEnv:
     def test_from_file_with_env_and_markers(self, template_with_markers: Path) -> None:
         """Test that comment markers work when env is provided."""
         from jinja2 import Environment, FileSystemLoader
-        from jinjatest import TemplateSpec, instrument
+        from jinjatest import TemplateSpec
+        from jinjatest.instrumentation import create_instrumentation
 
         env = Environment(loader=FileSystemLoader(str(template_with_markers)))
-        instrument(env, test_mode=True)
+        inst = create_instrumentation(test_mode=True)
+        env.globals["jt"] = inst
 
         spec = TemplateSpec.from_file("v2/marked.j2", env=env)
         rendered = spec.render({"name": "World"})

@@ -718,11 +718,11 @@ class TestSpecCoverage:
         assert "plan" in variables
 
     def test_template_spec_get_undeclared_variables_from_string(self) -> None:
-        """Test get_undeclared_variables returns empty for string templates."""
+        """Test get_undeclared_variables works for string templates."""
         spec = TemplateSpec.from_string("Hello {{ name }}")
         variables = spec.get_undeclared_variables()
-        # String templates may not have a loader, so returns empty
-        assert variables == set()
+        # String templates now store source, so variables can be discovered
+        assert "name" in variables
 
     def test_template_spec_assert_variables_subset_of_pass(self) -> None:
         """Test assert_variables_subset_of when all variables are allowed."""

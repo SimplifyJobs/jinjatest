@@ -37,6 +37,7 @@ dev = [
 
 [project.entry-points.pytest11]
 jinjatest = "jinjatest.pytest_plugin"
+jinjatest_cov = "jinjatest.coverage.pytest_cov"
 
 [project.urls]
 Homepage = "https://github.com/jinjatest/jinjatest"

@@ -100,6 +100,7 @@ def create_environment(
     enable_do_extension: bool = True,
     sandboxed: bool = False,
     native_types: bool = False,
+    enable_condexpr_coverage: bool = False,
     extensions: list[str] | None = None,
     filters: dict[str, Callable[..., Any]] | None = None,
     globals: dict[str, Any] | None = None,
@@ -115,6 +116,7 @@ def create_environment(
         enable_do_extension: If True, enable jinja2.ext.do for statement expressions.
         sandboxed: If True, use SandboxedEnvironment for untrusted templates.
         native_types: If True, use NativeEnvironment for Python type output.
+        enable_condexpr_coverage: If True, use CoverageEnvironment for ternary expression coverage.
         extensions: Additional Jinja extensions to load.
         filters: Custom filters to add to the environment.
         globals: Global variables/functions to add to the environment.
@@ -151,6 +153,10 @@ def create_environment(
         env_class = SandboxedEnvironment
     elif native_types:
         env_class = NativeEnvironment  # type: ignore[assignment]
+    elif enable_condexpr_coverage:
+        from jinjatest.coverage.environment import CoverageEnvironment
+
+        env_class = CoverageEnvironment  # type: ignore[assignment]
     else:
         env_class = Environment
 
@@ -256,14 +262,22 @@ class TemplateSpec(Generic[TContext]):
             transform_result = transform_markers(source)
             source = transform_result.source
 
+        # Check for coverage collector early to determine environment type
+        collector = _get_coverage_collector()
+
         if env is None:
-            env = create_environment(**env_kwargs)
+            # Enable condexpr coverage if collector is enabled
+            env = create_environment(
+                enable_condexpr_coverage=collector is not None and test_mode,
+                **env_kwargs,
+            )
 
         instrumentation = create_instrumentation(test_mode=test_mode)
         env.globals["jt"] = instrumentation
 
-        # Check for coverage collector and instrument if enabled
-        collector = _get_coverage_collector()
+        # Inject trace function for CondExpr coverage
+        if collector and test_mode:
+            env.globals["_trace_branch"] = instrumentation.trace_branch
         if collector and test_mode:
             # Generate unique path for string templates to avoid collisions
             if template_path:
@@ -323,6 +337,9 @@ class TemplateSpec(Generic[TContext]):
         env_was_provided = env is not None
         template_dir_was_provided = template_dir is not None
 
+        # Check for coverage collector early
+        collector = _get_coverage_collector()
+
         if env is None:
             # Determine template directory
             if template_dir is None:
@@ -334,9 +351,18 @@ class TemplateSpec(Generic[TContext]):
             template_paths = env_kwargs.pop("template_paths", None) or []
             template_paths = [template_dir] + [Path(p) for p in template_paths]
 
-            env = create_environment(template_paths=template_paths, **env_kwargs)
+            # Enable condexpr coverage if collector is enabled
+            env = create_environment(
+                template_paths=template_paths,
+                enable_condexpr_coverage=collector is not None and test_mode,
+                **env_kwargs,
+            )
             instrumentation = create_instrumentation(test_mode=test_mode)
             env.globals["jt"] = instrumentation
+
+            # Inject trace function for CondExpr coverage
+            if collector and test_mode:
+                env.globals["_trace_branch"] = instrumentation.trace_branch
         else:
             # For provided env, check if already instrumented
             existing_jt = env.globals.get("jt")
@@ -347,6 +373,10 @@ class TemplateSpec(Generic[TContext]):
             else:
                 instrumentation = create_instrumentation(test_mode=test_mode)
                 env.globals["jt"] = instrumentation
+
+            # Inject trace function for CondExpr coverage if not already present
+            if collector and test_mode and "_trace_branch" not in env.globals:
+                env.globals["_trace_branch"] = instrumentation.trace_branch
 
         # Determine template name based on how env was obtained
         # When env is provided or template_dir is explicitly set, use full path
@@ -378,8 +408,7 @@ class TemplateSpec(Generic[TContext]):
             transform_result = transform_markers(original_source)
             transformed_source = transform_result.source
 
-            # Check for coverage collector and instrument if enabled
-            collector = _get_coverage_collector()
+            # Instrument for coverage if enabled
             if collector and test_mode:
                 transformed_source = collector.register_template(
                     cov_path, transformed_source
@@ -389,7 +418,6 @@ class TemplateSpec(Generic[TContext]):
             template = env.from_string(transformed_source)
         else:
             # Check for coverage without marker transformation
-            collector = _get_coverage_collector()
             if collector and test_mode:
                 # Need to read source for instrumentation
                 if env.loader is not None:

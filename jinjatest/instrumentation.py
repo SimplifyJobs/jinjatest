@@ -126,6 +126,24 @@ class TestInstrumentation:
             self._trace_recorder.record(event)
         return ""
 
+    def trace_branch(self, branch_id: str, value: object) -> object:
+        """Record branch execution and return the value unchanged.
+
+        This is the lazy-evaluation-safe version of branch tracing.
+        It's called from within the taken branch of a CondExpr,
+        so only executed branches are recorded.
+
+        Args:
+            branch_id: The branch identifier (e.g., 'ternary_1_true').
+            value: The value to pass through.
+
+        Returns:
+            The value unchanged.
+        """
+        if self._enabled:
+            self._trace_recorder.record(branch_id)
+        return value
+
     def clear(self) -> None:
         """Clear all trace events."""
         self._trace_recorder.clear()

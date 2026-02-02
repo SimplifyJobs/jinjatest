@@ -81,6 +81,7 @@ class BranchDiscovery:
                  If not provided, a default environment is created.
         """
         self._env = env or Environment()
+        self._condexpr_count = 0  # Counter for unique CondExpr IDs
 
     def discover(
         self, source: str, template_path: str | None = None
@@ -94,6 +95,7 @@ class BranchDiscovery:
         Returns:
             DiscoveryResult containing all discovered branches.
         """
+        self._condexpr_count = 0  # Reset counter for each discovery
         ast = self._env.parse(source)
         branches: list[BranchInfo] = []
         self._walk_node(ast, branches)
@@ -123,6 +125,8 @@ class BranchDiscovery:
             self._handle_macro_node(node, branches)
         elif isinstance(node, nodes.Include):
             self._handle_include_node(node, branches)
+        elif isinstance(node, nodes.CondExpr):
+            self._handle_condexpr_node(node, branches)
         else:
             for child in node.iter_child_nodes():
                 self._walk_node(child, branches)
@@ -331,3 +335,45 @@ class BranchDiscovery:
                 description=f"include '{template_name}' at line {node.lineno}",
             )
         )
+
+    def _handle_condexpr_node(
+        self,
+        node: nodes.CondExpr,
+        branches: list[BranchInfo],
+    ) -> None:
+        """Handle CondExpr (ternary) node.
+
+        Args:
+            node: The CondExpr AST node.
+            branches: List to append discovered branches to.
+        """
+        from jinja2 import nodes
+
+        self._condexpr_count += 1
+        branch_id = f"ternary_{self._condexpr_count}"
+        line = node.lineno
+
+        branches.append(
+            BranchInfo(
+                branch_id=f"{branch_id}_true",
+                branch_type="cond_true",
+                line=line,
+                description=f"ternary at line {line} condition is true",
+            )
+        )
+
+        branches.append(
+            BranchInfo(
+                branch_id=f"{branch_id}_false",
+                branch_type="cond_false",
+                line=line,
+                description=f"ternary at line {line} condition is false",
+            )
+        )
+
+        # Recursively handle nested CondExpr in test, expr1, and expr2
+        for child in node.iter_child_nodes():
+            if isinstance(child, nodes.CondExpr):
+                self._handle_condexpr_node(child, branches)
+            else:
+                self._walk_node(child, branches)

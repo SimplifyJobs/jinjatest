@@ -81,7 +81,7 @@ class BranchDiscovery:
                  If not provided, a default environment is created.
         """
         self._env = env or Environment()
-        self._condexpr_count = 0  # Counter for unique CondExpr IDs
+        self._condexpr_count = 0
 
     def discover(
         self, source: str, template_path: str | None = None
@@ -127,6 +127,8 @@ class BranchDiscovery:
             self._handle_include_node(node, branches)
         elif isinstance(node, nodes.CondExpr):
             self._handle_condexpr_node(node, branches)
+        elif isinstance(node, nodes.Block):
+            self._handle_block_node(node, branches)
         else:
             for child in node.iter_child_nodes():
                 self._walk_node(child, branches)
@@ -160,18 +162,14 @@ class BranchDiscovery:
             )
         )
 
-        # Check if there are elif branches
-        # In Jinja AST, elif_ contains If nodes for each elif clause
+        # In Jinja AST, elif_ contains nested If nodes
         has_elif = bool(node.elif_)
         has_else = bool(node.else_)
 
         if has_elif:
-            # Process elif chain - the elif_ contains If nodes
-            # Pass along whether there's an else clause at the end
             for i, elif_node in enumerate(node.elif_):
                 if isinstance(elif_node, nodes.If):
                     is_last = i == len(node.elif_) - 1
-                    # The else_ of this node applies to the last elif
                     self._handle_if_node(
                         elif_node,
                         branches,
@@ -179,10 +177,7 @@ class BranchDiscovery:
                         parent_has_else=has_else if is_last else False,
                     )
 
-        # Add false branch based on the structure
         if in_elif:
-            # For elif nodes, the parent handles the false branch
-            # We only need to add it if we're the last elif AND parent has else
             if parent_has_else:
                 branches.append(
                     BranchInfo(
@@ -194,7 +189,6 @@ class BranchDiscovery:
                     )
                 )
             elif not has_elif:
-                # Last elif in chain with no else - implicit false
                 branches.append(
                     BranchInfo(
                         branch_id=f"{prefix}_{line}_false",
@@ -205,9 +199,7 @@ class BranchDiscovery:
                     )
                 )
         else:
-            # For top-level if
             if has_else and not has_elif:
-                # Plain else branch (no elif)
                 branches.append(
                     BranchInfo(
                         branch_id=f"{prefix}_{line}_false",
@@ -218,7 +210,6 @@ class BranchDiscovery:
                     )
                 )
             elif not has_else and not has_elif:
-                # No else or elif branch - implicit false case
                 branches.append(
                     BranchInfo(
                         branch_id=f"{prefix}_{line}_false",
@@ -228,7 +219,6 @@ class BranchDiscovery:
                         has_else=False,
                     )
                 )
-            # If has_elif, the false branch is handled by the last elif
 
         for child in node.body:
             self._walk_node(child, branches)
@@ -269,7 +259,6 @@ class BranchDiscovery:
                 )
             )
         else:
-            # No else block - implicit else case (nothing happens when empty)
             branches.append(
                 BranchInfo(
                     branch_id=f"for_{line}_else",
@@ -336,6 +325,29 @@ class BranchDiscovery:
             )
         )
 
+    def _handle_block_node(
+        self,
+        node: nodes.Block,
+        branches: list[BranchInfo],
+    ) -> None:
+        """Handle Block node for template inheritance.
+
+        Args:
+            node: The Block AST node.
+            branches: List to append discovered branches to.
+        """
+        branches.append(
+            BranchInfo(
+                branch_id=f"block_{node.name}",
+                branch_type="block",
+                line=node.lineno,
+                description=f"block '{node.name}' at line {node.lineno}",
+            )
+        )
+
+        for child in node.body:
+            self._walk_node(child, branches)
+
     def _handle_condexpr_node(
         self,
         node: nodes.CondExpr,
@@ -371,7 +383,6 @@ class BranchDiscovery:
             )
         )
 
-        # Recursively handle nested CondExpr in test, expr1, and expr2
         for child in node.iter_child_nodes():
             if isinstance(child, nodes.CondExpr):
                 self._handle_condexpr_node(child, branches)

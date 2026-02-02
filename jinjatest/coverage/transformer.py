@@ -86,7 +86,6 @@ class CondExprTransformer(NodeTransformer):
         # This must happen AFTER we increment count for correct ordering
         self.generic_visit(node)
 
-        # Wrap each branch with a trace call
         traced_expr1 = self._wrap_with_trace(
             node.expr1, f"{branch_id}_true", node.lineno
         )
@@ -96,8 +95,6 @@ class CondExprTransformer(NodeTransformer):
             node.lineno,
         )
 
-        # Return a new CondExpr with traced branches (preserves lazy evaluation)
-        # CondExpr fields are: test, expr1, expr2
         return nodes.CondExpr(
             node.test,
             traced_expr1,

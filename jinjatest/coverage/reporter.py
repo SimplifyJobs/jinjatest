@@ -1,5 +1,5 @@
 """
-Coverage reporters for terminal, JSON, and HTML output.
+Coverage reporters for terminal, JSON, HTML, and JUnit XML output.
 
 This module provides different report formats for coverage data.
 """
@@ -7,6 +7,7 @@ This module provides different report formats for coverage data.
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
@@ -78,7 +79,6 @@ class TerminalReporter:
                 output.write(result)
             return result
 
-        # Determine column layout based on mode
         if self.config.show_missing_inline:
             lines.append(
                 f"{'Template':<40} {'Branches':>8} {'Covered':>8} "
@@ -464,6 +464,87 @@ class HTMLReporter:
         )
 
 
+class JUnitReporter:
+    """JUnit XML coverage reporter.
+
+    Generates JUnit-compatible XML for CI systems like Jenkins, GitHub Actions, etc.
+    Each template is reported as a test suite, with uncovered branches as failures.
+    """
+
+    def __init__(self, config: ReportConfig | None = None) -> None:
+        """Initialize the JUnit reporter.
+
+        Args:
+            config: Optional report configuration.
+        """
+        self.config = config or ReportConfig()
+
+    def report(
+        self,
+        summary: CoverageSummary,
+        output: TextIO | None = None,
+    ) -> str:
+        """Generate a JUnit XML coverage report.
+
+        Args:
+            summary: The coverage summary to report.
+            output: Optional file-like object to write to.
+
+        Returns:
+            The XML string.
+        """
+        testsuites = ET.Element("testsuites")
+        testsuites.set("name", "Jinja Template Coverage")
+        testsuites.set("tests", str(summary.total_branches))
+        testsuites.set(
+            "failures", str(summary.total_branches - summary.covered_branches)
+        )
+        testsuites.set("time", "0")
+
+        for stats in summary.templates:
+            testsuite = ET.SubElement(testsuites, "testsuite")
+            testsuite.set("name", stats.template_path or "<string>")
+            testsuite.set("tests", str(stats.total_branches))
+            testsuite.set("failures", str(len(stats.uncovered_branches)))
+            testsuite.set("time", "0")
+
+            for bc in stats.covered_branch_list:
+                testcase = ET.SubElement(testsuite, "testcase")
+                testcase.set("name", bc.branch.branch_id)
+                testcase.set("classname", stats.template_path or "<string>")
+                testcase.set("time", "0")
+
+            for bc in stats.uncovered_branches:
+                testcase = ET.SubElement(testsuite, "testcase")
+                testcase.set("name", bc.branch.branch_id)
+                testcase.set("classname", stats.template_path or "<string>")
+                testcase.set("time", "0")
+
+                failure = ET.SubElement(testcase, "failure")
+                failure.set("message", f"Branch not covered: {bc.branch.description}")
+                failure.set("type", "CoverageFailure")
+                failure.text = f"Line {bc.branch.line}: {bc.branch.description}"
+
+        result = ET.tostring(testsuites, encoding="unicode")
+        xml_declaration = '<?xml version="1.0" encoding="UTF-8"?>\n'
+        result = xml_declaration + result
+
+        if output:
+            output.write(result)
+        return result
+
+    def write_to_file(self, summary: CoverageSummary, path: Path) -> None:
+        """Write JUnit XML report to a file.
+
+        Args:
+            summary: The coverage summary.
+            path: The output file path.
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            self.report(summary, f)
+
+
 class CoverageReporter:
     """Unified reporter that can output multiple formats.
 
@@ -472,6 +553,7 @@ class CoverageReporter:
         >>> reporter.terminal_report(summary)
         >>> reporter.json_report(summary, Path("coverage.json"))
         >>> reporter.html_report(summary, Path("htmlcov"), sources)
+        >>> reporter.junit_report(summary, Path("coverage.xml"))
     """
 
     def __init__(self, config: ReportConfig | None = None) -> None:
@@ -484,6 +566,7 @@ class CoverageReporter:
         self._terminal = TerminalReporter(self.config)
         self._json = JSONReporter(self.config)
         self._html = HTMLReporter(self.config)
+        self._junit = JUnitReporter(self.config)
 
     def terminal_report(
         self,
@@ -528,3 +611,16 @@ class CoverageReporter:
             sources: Optional dict mapping paths to sources.
         """
         self._html.report(summary, output_dir, sources)
+
+    def junit_report(
+        self,
+        summary: CoverageSummary,
+        path: Path,
+    ) -> None:
+        """Write a JUnit XML report to a file.
+
+        Args:
+            summary: The coverage summary.
+            path: Output file path.
+        """
+        self._junit.write_to_file(summary, path)

@@ -55,8 +55,16 @@ packages = ["jinjatest"]
 [tool.ty.environment]
 python-version = "3.10"
 
-[tool.ty.src]
-exclude = ["tests/"]
+[[tool.ty.overrides]]
+include = ["tests/"]
+
+[tool.ty.overrides.rules]
+# Tests frequently access attributes on union types after assertions narrow the type
+possibly-missing-attribute = "ignore"
+# Tests often use operators on optional types where context guarantees validity
+unsupported-operator = "warn"
+# Allow more flexible argument types in test code
+invalid-argument-type = "warn"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

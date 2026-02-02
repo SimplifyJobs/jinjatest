@@ -42,6 +42,7 @@ from jinjatest.coverage.reporter import (
     CoverageReporter,
     HTMLReporter,
     JSONReporter,
+    JUnitReporter,
     ReportConfig,
     TerminalReporter,
 )
@@ -69,5 +70,6 @@ __all__ = [
     "TerminalReporter",
     "JSONReporter",
     "HTMLReporter",
+    "JUnitReporter",
     "ReportConfig",
 ]

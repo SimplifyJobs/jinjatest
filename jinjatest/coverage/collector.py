@@ -7,14 +7,11 @@ during pytest sessions to track coverage across all template renders.
 
 from __future__ import annotations
 
+import fnmatch
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING
 
 from jinjatest.coverage.tracker import TemplateCoverage, TemplateCoverageStats
-
-if TYPE_CHECKING:
-    pass
 
 
 @dataclass
@@ -65,6 +62,7 @@ class CoverageCollector:
 
     Example:
         >>> collector = get_coverage_collector()
+        >>> collector.set_exclude_patterns(["**/vendor/**"])
         >>> instrumented = collector.register_template("my.j2", source)
         >>> # ... render template ...
         >>> collector.record_render("my.j2", trace_events)
@@ -76,6 +74,29 @@ class CoverageCollector:
         self._trackers: dict[str, TemplateCoverage] = {}
         self._lock = Lock()
         self._enabled = False
+        self._exclude_patterns: list[str] = []
+
+    def set_exclude_patterns(self, patterns: list[str]) -> None:
+        """Set glob patterns for templates to exclude from coverage.
+
+        Args:
+            patterns: List of glob patterns (e.g., ["**/vendor/**", "*.partial.j2"]).
+        """
+        self._exclude_patterns = patterns
+
+    def _is_excluded(self, path: str) -> bool:
+        """Check if a template path should be excluded.
+
+        Args:
+            path: The template path to check.
+
+        Returns:
+            True if the path matches any exclude pattern.
+        """
+        for pattern in self._exclude_patterns:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+        return False
 
     @property
     def enabled(self) -> bool:
@@ -110,6 +131,9 @@ class CoverageCollector:
             The instrumented source code.
         """
         if not self._enabled:
+            return source
+
+        if self._is_excluded(path):
             return source
 
         with self._lock:

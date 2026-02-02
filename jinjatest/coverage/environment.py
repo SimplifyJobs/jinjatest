@@ -43,7 +43,6 @@ class CoverageEnvironment(Environment):
 
         from jinjatest.coverage.transformer import CondExprTransformer
 
-        # Only transform if there are CondExpr nodes
         if list(source.find_all(n.CondExpr)):
             transformer = CondExprTransformer()
             source = transformer.visit(source)

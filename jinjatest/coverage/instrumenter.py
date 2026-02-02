@@ -67,6 +67,10 @@ class AutoInstrumenter:
         r"(\{%-?\s*macro\s+(\w+)\s*\(.*?\)\s*-?%\})",
         re.DOTALL,
     )
+    BLOCK_PATTERN = re.compile(
+        r"(\{%-?\s*block\s+(\w+)\s*-?%\})",
+        re.DOTALL,
+    )
 
     BLOCK_TAG_PATTERN = re.compile(
         r"\{%-?\s*(if|elif|else|endif|for|endfor)\b.*?-?%\}",
@@ -119,6 +123,9 @@ class AutoInstrumenter:
             insertions += count
 
             new_line, count = self._instrument_macro(new_line)
+            insertions += count
+
+            new_line, count = self._instrument_block(new_line)
             insertions += count
 
             instrumented_lines.append(new_line)
@@ -285,6 +292,28 @@ class AutoInstrumenter:
             return f"{tag}{trace_call}"
 
         new_line = self.MACRO_PATTERN.sub(replace_macro, line)
+        return new_line, count
+
+    def _instrument_block(self, line: str) -> tuple[str, int]:
+        """Instrument block definitions in a line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            Tuple of (modified line, insertion count).
+        """
+        count = 0
+
+        def replace_block(match: re.Match[str]) -> str:
+            nonlocal count
+            count += 1
+            tag = match.group(1)
+            block_name = match.group(2)
+            trace_call = f'{{{{ jt.trace("block_{block_name}") }}}}'
+            return f"{tag}{trace_call}"
+
+        new_line = self.BLOCK_PATTERN.sub(replace_block, line)
         return new_line, count
 
     def _instrument_implicit_false(

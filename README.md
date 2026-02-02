@@ -7,12 +7,12 @@ Stop writing brittle substring assertions. Test your templates with structure, v
 ## Installation
 
 ```bash
-pip install jinjatest
+uv add jinjatest
 ```
 
 With YAML support:
 ```bash
-pip install jinjatest[yaml]
+uv add jinjatest[yaml]
 ```
 
 ## Why jinjatest?
@@ -402,6 +402,48 @@ spec = TemplateSpec.from_file("template.j2")
 # Fail if template uses unexpected variables
 spec.assert_variables_subset_of({"user_name", "plan", "items"})
 ```
+
+## Template Coverage
+
+Track branch coverage for your Jinja templates to ensure all conditional paths are tested.
+
+### Quick Start
+
+```bash
+pytest --jt-cov
+```
+
+### CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `--jt-cov` | Enable template coverage |
+| `--jt-cov-fail-under=N` | Fail if coverage below N% |
+| `--jt-cov-report=TYPE` | Report type: `term`, `term-missing`, `html`, `json`, `xml` |
+| `--jt-cov-html=DIR` | HTML report directory |
+| `--jt-cov-json=FILE` | JSON report file |
+| `--jt-cov-xml=FILE` | JUnit XML report file |
+| `--jt-cov-exclude=PATTERN` | Glob pattern to exclude templates |
+
+### Configuration (pyproject.toml)
+
+```toml
+[tool.jinjatest.coverage]
+enabled = true
+fail_under = 80
+report = ["term", "html"]
+html_dir = "jt-htmlcov"
+exclude_patterns = ["**/vendor/**", "*.partial.j2"]
+```
+
+### What's Tracked
+
+- `{% if %}` / `{% elif %}` / `{% else %}` branches
+- `{% for %}` loops (body and else)
+- `{% macro %}` definitions
+- `{% block %}` definitions (template inheritance)
+- `{% include %}` statements
+- Ternary expressions (`{{ x if cond else y }}`)
 
 ## License
 

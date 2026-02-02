@@ -19,3 +19,6 @@ uv.lock
 .coverage
 htmlcov/
 *,cover
+
+# Generated files
+jinjatest/coverage/_templates.py

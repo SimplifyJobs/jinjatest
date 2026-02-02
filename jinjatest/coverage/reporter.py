@@ -11,6 +11,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
+from jinjatest.coverage._templates import (
+    INDEX_HTML,
+    ROW_HTML,
+    SOURCE_LINE_HTML,
+    STYLE_CSS,
+    TEMPLATE_PAGE_HTML,
+)
+
 if TYPE_CHECKING:
     from jinjatest.coverage.collector import CoverageSummary
     from jinjatest.coverage.tracker import TemplateCoverageStats
@@ -280,60 +288,30 @@ class HTMLReporter:
         """
         rows = []
         for stats in sorted(summary.templates, key=lambda s: s.template_path or ""):
-            path = stats.template_path or "&lt;string&gt;"
+            path = stats.template_path or "<string>"
             safe_name = self._safe_filename(stats.template_path or "string")
             coverage_class = self._coverage_class(stats.coverage_percent)
-            rows.append(f"""
-                <tr class="{coverage_class}">
-                    <td><a href="{safe_name}.html">{self._escape(path)}</a></td>
-                    <td class="num">{stats.total_branches}</td>
-                    <td class="num">{stats.covered_branches}</td>
-                    <td class="num">{stats.coverage_percent:.1f}%</td>
-                </tr>
-            """)
+            rows.append(
+                ROW_HTML.format(
+                    coverage_class=coverage_class,
+                    safe_name=safe_name,
+                    path=self._escape(path),
+                    total_branches=stats.total_branches,
+                    covered_branches=stats.covered_branches,
+                    coverage_percent=stats.coverage_percent,
+                )
+            )
 
         coverage_class = self._coverage_class(summary.coverage_percent)
 
-        return f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Jinja Template Coverage Report</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <h1>Jinja Template Coverage Report</h1>
-
-    <div class="summary {coverage_class}">
-        <h2>Summary</h2>
-        <p>Total Coverage: <strong>{summary.coverage_percent:.1f}%</strong></p>
-        <p>Templates: {summary.template_count} | Branches: {summary.covered_branches}/{summary.total_branches}</p>
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Template</th>
-                <th class="num">Branches</th>
-                <th class="num">Covered</th>
-                <th class="num">Coverage</th>
-            </tr>
-        </thead>
-        <tbody>
-            {"".join(rows)}
-        </tbody>
-        <tfoot>
-            <tr class="{coverage_class}">
-                <td><strong>TOTAL</strong></td>
-                <td class="num"><strong>{summary.total_branches}</strong></td>
-                <td class="num"><strong>{summary.covered_branches}</strong></td>
-                <td class="num"><strong>{summary.coverage_percent:.1f}%</strong></td>
-            </tr>
-        </tfoot>
-    </table>
-</body>
-</html>
-"""
+        return INDEX_HTML.format(
+            coverage_class=coverage_class,
+            coverage_percent=summary.coverage_percent,
+            template_count=summary.template_count,
+            covered_branches=summary.covered_branches,
+            total_branches=summary.total_branches,
+            rows="".join(rows),
+        )
 
     def _generate_template_page(
         self,
@@ -369,44 +347,31 @@ class HTMLReporter:
 
             escaped = self._escape(line) or "&nbsp;"
             source_lines.append(
-                f'<tr class="{line_class}">'
-                f'<td class="lineno">{i}</td>'
-                f'<td class="source"><pre>{escaped}</pre></td>'
-                f"</tr>"
+                SOURCE_LINE_HTML.format(
+                    line_class=line_class,
+                    lineno=i,
+                    source=escaped,
+                )
             )
 
-        path = stats.template_path or "&lt;string&gt;"
+        path = stats.template_path or "<string>"
         coverage_class = self._coverage_class(stats.coverage_percent)
 
-        return f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Coverage: {self._escape(path)}</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <p><a href="index.html">&larr; Back to index</a></p>
+        uncovered_items = [
+            f"<li>Line {bc.branch.line}: {self._escape(bc.branch.description)}</li>"
+            for bc in stats.uncovered_branches
+        ]
+        uncovered_list = "".join(uncovered_items) or "<li>All branches covered!</li>"
 
-    <h1>{self._escape(path)}</h1>
-
-    <div class="summary {coverage_class}">
-        <p>Coverage: <strong>{stats.coverage_percent:.1f}%</strong>
-           ({stats.covered_branches}/{stats.total_branches} branches)</p>
-    </div>
-
-    <h2>Uncovered Branches</h2>
-    <ul class="branch-list">
-        {"".join(f"<li>Line {bc.branch.line}: {self._escape(bc.branch.description)}</li>" for bc in stats.uncovered_branches) or "<li>All branches covered!</li>"}
-    </ul>
-
-    <h2>Source</h2>
-    <table class="source-table">
-        {"".join(source_lines)}
-    </table>
-</body>
-</html>
-"""
+        return TEMPLATE_PAGE_HTML.format(
+            path=self._escape(path),
+            coverage_class=coverage_class,
+            coverage_percent=stats.coverage_percent,
+            covered_branches=stats.covered_branches,
+            total_branches=stats.total_branches,
+            uncovered_list=uncovered_list,
+            source_lines="".join(source_lines),
+        )
 
     def _generate_css(self) -> str:
         """Generate CSS stylesheet.
@@ -414,99 +379,7 @@ class HTMLReporter:
         Returns:
             CSS string.
         """
-        return """
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    margin: 2em;
-    line-height: 1.6;
-}
-
-h1 {
-    border-bottom: 2px solid #333;
-    padding-bottom: 0.5em;
-}
-
-table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 1em 0;
-}
-
-th, td {
-    border: 1px solid #ddd;
-    padding: 8px 12px;
-    text-align: left;
-}
-
-th {
-    background: #f5f5f5;
-}
-
-.num {
-    text-align: right;
-}
-
-.summary {
-    padding: 1em;
-    border-radius: 4px;
-    margin: 1em 0;
-}
-
-.high {
-    background-color: #d4edda;
-}
-
-.medium {
-    background-color: #fff3cd;
-}
-
-.low {
-    background-color: #f8d7da;
-}
-
-tr.covered {
-    background-color: #d4edda;
-}
-
-tr.uncovered {
-    background-color: #f8d7da;
-}
-
-.source-table {
-    font-family: monospace;
-}
-
-.source-table .lineno {
-    width: 50px;
-    text-align: right;
-    color: #999;
-    user-select: none;
-    background: #f5f5f5;
-}
-
-.source-table .source pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-}
-
-.branch-list {
-    margin: 1em 0;
-}
-
-.branch-list li {
-    margin: 0.5em 0;
-}
-
-a {
-    color: #007bff;
-    text-decoration: none;
-}
-
-a:hover {
-    text-decoration: underline;
-}
-"""
+        return STYLE_CSS
 
     def _coverage_class(self, percent: float) -> str:
         """Get CSS class based on coverage percentage.

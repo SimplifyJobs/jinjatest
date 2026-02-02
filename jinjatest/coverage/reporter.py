@@ -31,6 +31,7 @@ class ReportConfig:
     fail_under: float = 0.0
     show_missing: bool = True
     verbose: bool = False
+    show_missing_inline: bool = False
 
 
 class TerminalReporter:
@@ -77,26 +78,46 @@ class TerminalReporter:
                 output.write(result)
             return result
 
-        lines.append(
-            f"{'Template':<40} {'Branches':>10} {'Covered':>10} {'Coverage':>10}"
-        )
-        lines.append("-" * 70)
+        # Determine column layout based on mode
+        if self.config.show_missing_inline:
+            lines.append(
+                f"{'Template':<40} {'Branches':>8} {'Covered':>8} "
+                f"{'Coverage':>8}   {'Missing'}"
+            )
+            lines.append("-" * 90)
+        else:
+            lines.append(
+                f"{'Template':<40} {'Branches':>10} {'Covered':>10} {'Coverage':>10}"
+            )
+            lines.append("-" * 70)
 
         for stats in sorted(summary.templates, key=lambda s: s.template_path or ""):
             path = self._truncate_path(stats.template_path or "<string>", 40)
-            lines.append(
-                f"{path:<40} {stats.total_branches:>10} "
-                f"{stats.covered_branches:>10} {stats.coverage_percent:>9.1f}%"
-            )
 
-            if self.config.verbose and self.config.show_missing:
-                for branch_cov in stats.uncovered_branches:
-                    lines.append(
-                        f"  - {branch_cov.branch.branch_id}: "
-                        f"{branch_cov.branch.description}"
-                    )
+            if self.config.show_missing_inline:
+                missing_lines = self._get_missing_lines(stats)
+                lines.append(
+                    f"{path:<40} {stats.total_branches:>8} "
+                    f"{stats.covered_branches:>8} {stats.coverage_percent:>7.1f}%   "
+                    f"{missing_lines}"
+                )
+            else:
+                lines.append(
+                    f"{path:<40} {stats.total_branches:>10} "
+                    f"{stats.covered_branches:>10} {stats.coverage_percent:>9.1f}%"
+                )
 
-        lines.append("-" * 70)
+                if self.config.verbose and self.config.show_missing:
+                    for branch_cov in stats.uncovered_branches:
+                        lines.append(
+                            f"  - {branch_cov.branch.branch_id}: "
+                            f"{branch_cov.branch.description}"
+                        )
+
+        if self.config.show_missing_inline:
+            lines.append("-" * 90)
+        else:
+            lines.append("-" * 70)
         lines.append(
             f"{'TOTAL':<40} {summary.total_branches:>10} "
             f"{summary.covered_branches:>10} {summary.coverage_percent:>9.1f}%"
@@ -120,6 +141,22 @@ class TerminalReporter:
         if output:
             output.write(result)
         return result
+
+    def _get_missing_lines(self, stats: TemplateCoverageStats) -> str:
+        """Get a compact string of missing line numbers.
+
+        Args:
+            stats: The template coverage stats.
+
+        Returns:
+            Comma-separated line numbers, e.g., "10, 16, 30"
+        """
+        if not stats.uncovered_branches:
+            return ""
+
+        # Get unique line numbers, sorted
+        missing = sorted({bc.branch.line for bc in stats.uncovered_branches})
+        return ", ".join(str(line) for line in missing)
 
     def _truncate_path(self, path: str, max_len: int) -> str:
         """Truncate a path to fit in a column.

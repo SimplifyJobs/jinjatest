@@ -47,7 +47,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=[],
         metavar="TYPE",
         help=(
-            "Coverage report type: term, term-verbose, json, html "
+            "Coverage report type: term, term-missing, term-verbose, json, html "
             "(can be specified multiple times)"
         ),
     )
@@ -109,13 +109,14 @@ def pytest_sessionfinish(
         fail_under=fail_under,
         show_missing=True,
         verbose="term-verbose" in report_types,
+        show_missing_inline="term-missing" in report_types,
     )
     reporter = CoverageReporter(report_config)
 
     terminalreporter = config.pluginmanager.get_plugin("terminalreporter")
     output = terminalreporter._tw if terminalreporter else None
 
-    if "term" in report_types or "term-verbose" in report_types:
+    if "term" in report_types or "term-missing" in report_types or "term-verbose" in report_types:
         report_text = reporter.terminal_report(summary)
         if output:
             output.write(report_text)

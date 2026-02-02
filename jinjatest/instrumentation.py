@@ -168,6 +168,10 @@ class ProductionInstrumentation:
         """No-op in production mode."""
         return ""
 
+    def trace_branch(self, branch_id: str, value: object) -> object:
+        """No-op in production mode - just returns value unchanged."""
+        return value
+
     def clear(self) -> None:
         """No-op in production mode."""
         pass

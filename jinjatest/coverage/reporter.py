@@ -154,7 +154,6 @@ class TerminalReporter:
         if not stats.uncovered_branches:
             return ""
 
-        # Get unique line numbers, sorted
         missing = sorted({bc.branch.line for bc in stats.uncovered_branches})
         return ", ".join(str(line) for line in missing)
 

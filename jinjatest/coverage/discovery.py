@@ -21,10 +21,10 @@ class BranchInfo:
     """Information about a single branch in a template."""
 
     branch_id: str
-    branch_type: str  # "if_true", "if_false", "for_body", "for_else", "elif"
+    branch_type: str
     line: int
     description: str
-    has_else: bool = False  # Whether parent if/elif has an else block
+    has_else: bool = False
 
     def __hash__(self) -> int:
         return hash(self.branch_id)

@@ -152,11 +152,11 @@ def create_environment(
 
         env_class = SandboxedEnvironment
     elif native_types:
-        env_class = NativeEnvironment  # type: ignore[assignment]
+        env_class = NativeEnvironment
     elif enable_condexpr_coverage:
         from jinjatest.coverage.environment import CoverageEnvironment
 
-        env_class = CoverageEnvironment  # type: ignore[assignment]
+        env_class = CoverageEnvironment
     else:
         env_class = Environment
 
@@ -401,6 +401,7 @@ class TemplateSpec(Generic[TContext]):
                 original_source, _, _ = env.loader.get_source(env, template_name)
             else:
                 # Read from file system (for newly created env)
+                assert template_dir is not None
                 full_path = path if path.is_absolute() else Path(template_dir) / path
                 original_source = full_path.read_text()
 

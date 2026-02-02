@@ -116,7 +116,11 @@ def pytest_sessionfinish(
     terminalreporter = config.pluginmanager.get_plugin("terminalreporter")
     output = terminalreporter._tw if terminalreporter else None
 
-    if "term" in report_types or "term-missing" in report_types or "term-verbose" in report_types:
+    if (
+        "term" in report_types
+        or "term-missing" in report_types
+        or "term-verbose" in report_types
+    ):
         report_text = reporter.terminal_report(summary)
         if output:
             output.write(report_text)

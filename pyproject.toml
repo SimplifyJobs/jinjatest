@@ -55,6 +55,9 @@ packages = ["jinjatest"]
 [tool.ty.environment]
 python-version = "3.10"
 
+[tool.ty.src]
+exclude = ["tests/"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"

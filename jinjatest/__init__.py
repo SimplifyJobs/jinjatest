@@ -97,6 +97,7 @@ __all__ = [
     "TemplateMarkers",
     # Utilities
     "normalize_text",
+    # Coverage (lazy import via jinjatest.coverage)
 ]
 
 # Optional YAML exports

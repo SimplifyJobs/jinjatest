@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     from jinja2 import Environment, Template
 
-    from jinjatest.instrumentation import TestInstrumentation
+    from jinjatest.instrumentation import ProductionInstrumentation, TestInstrumentation
 
 # Regex patterns for comment markers
 # Name must be a valid Python identifier
@@ -138,7 +138,7 @@ def discover_markers(source: str) -> TemplateMarkers:
 def load_template_with_markers(
     env: Environment,
     template_path: str,
-    instrumentation: TestInstrumentation | None = None,
+    instrumentation: TestInstrumentation | ProductionInstrumentation | None = None,
 ) -> Template:
     """
     Load a template from an environment, transforming comment markers.

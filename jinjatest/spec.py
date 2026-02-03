@@ -38,8 +38,28 @@ Instrumentation = TestInstrumentation | ProductionInstrumentation
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from jinjatest.coverage.collector import CoverageCollector
+
 # Type variable for context model
 TContext = TypeVar("TContext", bound=BaseModel)
+
+
+def _get_coverage_collector() -> CoverageCollector | None:
+    """Get the coverage collector if enabled.
+
+    Returns:
+        CoverageCollector if enabled, None otherwise.
+    """
+    try:
+        from jinjatest.coverage.collector import get_coverage_collector
+
+        collector = get_coverage_collector()
+        if collector.enabled:
+            return collector
+    except ImportError:
+        # Coverage module is optional; proceed without collector if unavailable
+        pass
+    return None
 
 
 class TemplateRenderError(Exception):
@@ -81,6 +101,7 @@ def create_environment(
     enable_do_extension: bool = True,
     sandboxed: bool = False,
     native_types: bool = False,
+    enable_condexpr_coverage: bool = False,
     extensions: list[str] | None = None,
     filters: dict[str, Callable[..., Any]] | None = None,
     globals: dict[str, Any] | None = None,
@@ -96,6 +117,7 @@ def create_environment(
         enable_do_extension: If True, enable jinja2.ext.do for statement expressions.
         sandboxed: If True, use SandboxedEnvironment for untrusted templates.
         native_types: If True, use NativeEnvironment for Python type output.
+        enable_condexpr_coverage: If True, use CoverageEnvironment for ternary expression coverage.
         extensions: Additional Jinja extensions to load.
         filters: Custom filters to add to the environment.
         globals: Global variables/functions to add to the environment.
@@ -131,7 +153,11 @@ def create_environment(
 
         env_class = SandboxedEnvironment
     elif native_types:
-        env_class = NativeEnvironment  # type: ignore[assignment]
+        env_class = NativeEnvironment
+    elif enable_condexpr_coverage:
+        from jinjatest.coverage.environment import CoverageEnvironment
+
+        env_class = CoverageEnvironment
     else:
         env_class = Environment
 
@@ -182,6 +208,7 @@ class TemplateSpec(Generic[TContext]):
         context_model: type[TContext] | None = None,
         instrumentation: Instrumentation | None = None,
         source: str | None = None,
+        template_path: str | None = None,
     ) -> None:
         """Initialize a TemplateSpec.
 
@@ -191,6 +218,7 @@ class TemplateSpec(Generic[TContext]):
             context_model: Optional Pydantic model for context validation.
             instrumentation: Optional instrumentation for anchors/traces.
             source: Optional original template source (used for AST analysis).
+            template_path: Optional path for coverage tracking identification.
         """
         self._template = template
         self._env = env
@@ -199,6 +227,7 @@ class TemplateSpec(Generic[TContext]):
             instrumentation or create_instrumentation(test_mode=True)
         )
         self._source = source
+        self._template_path = template_path
 
     @classmethod
     def from_string(
@@ -209,6 +238,7 @@ class TemplateSpec(Generic[TContext]):
         env: Environment | None = None,
         test_mode: bool = True,
         use_comment_markers: bool = True,
+        template_path: str | None = None,
         **env_kwargs: Any,
     ) -> TemplateSpec[TContext]:
         """Create a TemplateSpec from a template string.
@@ -220,21 +250,47 @@ class TemplateSpec(Generic[TContext]):
             test_mode: If True, enable instrumentation.
             use_comment_markers: If True, transform {#jt:...#} comments to function calls.
                 Only applies when test_mode is True. Default True.
+            template_path: Optional path identifier for coverage tracking.
             **env_kwargs: Arguments passed to create_environment if env is None.
 
         Returns:
             A configured TemplateSpec.
         """
+        original_source = source
+
         # Transform comment markers if enabled and in test mode
         if use_comment_markers and test_mode:
             transform_result = transform_markers(source)
             source = transform_result.source
 
+        # Check for coverage collector early to determine environment type
+        collector = _get_coverage_collector()
+
         if env is None:
-            env = create_environment(**env_kwargs)
+            # Enable condexpr coverage if collector is enabled
+            env = create_environment(
+                enable_condexpr_coverage=collector is not None and test_mode,
+                **env_kwargs,
+            )
 
         instrumentation = create_instrumentation(test_mode=test_mode)
         env.globals["jt"] = instrumentation
+
+        # Inject trace function for CondExpr coverage
+        if collector and test_mode:
+            env.globals["_trace_branch"] = instrumentation.trace_branch
+        if collector and test_mode:
+            # Generate unique path for string templates to avoid collisions
+            if template_path:
+                cov_path = template_path
+            else:
+                import hashlib
+
+                source_hash = hashlib.md5(source.encode()).hexdigest()[:8]
+                cov_path = f"<string:{source_hash}>"
+            source = collector.register_template(cov_path, source)
+        else:
+            cov_path = template_path
 
         template = env.from_string(source)
         return cls(
@@ -242,6 +298,8 @@ class TemplateSpec(Generic[TContext]):
             env=env,
             context_model=context_model,
             instrumentation=instrumentation if test_mode else None,
+            source=original_source,
+            template_path=cov_path if collector and test_mode else None,
         )
 
     @classmethod
@@ -280,6 +338,9 @@ class TemplateSpec(Generic[TContext]):
         env_was_provided = env is not None
         template_dir_was_provided = template_dir is not None
 
+        # Check for coverage collector early
+        collector = _get_coverage_collector()
+
         if env is None:
             # Determine template directory
             if template_dir is None:
@@ -291,9 +352,18 @@ class TemplateSpec(Generic[TContext]):
             template_paths = env_kwargs.pop("template_paths", None) or []
             template_paths = [template_dir] + [Path(p) for p in template_paths]
 
-            env = create_environment(template_paths=template_paths, **env_kwargs)
+            # Enable condexpr coverage if collector is enabled
+            env = create_environment(
+                template_paths=template_paths,
+                enable_condexpr_coverage=collector is not None and test_mode,
+                **env_kwargs,
+            )
             instrumentation = create_instrumentation(test_mode=test_mode)
             env.globals["jt"] = instrumentation
+
+            # Inject trace function for CondExpr coverage
+            if collector and test_mode:
+                env.globals["_trace_branch"] = instrumentation.trace_branch
         else:
             # For provided env, check if already instrumented
             existing_jt = env.globals.get("jt")
@@ -305,6 +375,10 @@ class TemplateSpec(Generic[TContext]):
                 instrumentation = create_instrumentation(test_mode=test_mode)
                 env.globals["jt"] = instrumentation
 
+            # Inject trace function for CondExpr coverage if not already present
+            if collector and test_mode and "_trace_branch" not in env.globals:
+                env.globals["_trace_branch"] = instrumentation.trace_branch
+
         # Determine template name based on how env was obtained
         # When env is provided or template_dir is explicitly set, use full path
         # Otherwise use just filename (loader points to path.parent)
@@ -312,6 +386,9 @@ class TemplateSpec(Generic[TContext]):
             template_name = str(path)
         else:
             template_name = path.name
+
+        # Use full path for coverage tracking
+        cov_path = str(path.resolve()) if path.is_absolute() else str(path)
 
         # If using comment markers and in test mode, read and transform the source
         original_source: str | None = None
@@ -325,16 +402,39 @@ class TemplateSpec(Generic[TContext]):
                 original_source, _, _ = env.loader.get_source(env, template_name)
             else:
                 # Read from file system (for newly created env)
+                assert template_dir is not None
                 full_path = path if path.is_absolute() else Path(template_dir) / path
                 original_source = full_path.read_text()
 
             # Transform markers
             transform_result = transform_markers(original_source)
+            transformed_source = transform_result.source
+
+            # Instrument for coverage if enabled
+            if collector and test_mode:
+                transformed_source = collector.register_template(
+                    cov_path, transformed_source
+                )
 
             # Compile from transformed source
-            template = env.from_string(transform_result.source)
+            template = env.from_string(transformed_source)
         else:
-            template = env.get_template(template_name)
+            # Check for coverage without marker transformation
+            if collector and test_mode:
+                # Need to read source for instrumentation
+                if env.loader is not None:
+                    try:
+                        src, _, _ = env.loader.get_source(env, template_name)
+                        original_source = src
+                        instrumented_src = collector.register_template(cov_path, src)
+                        template = env.from_string(instrumented_src)
+                    except Exception:
+                        # Fall back to regular loading
+                        template = env.get_template(template_name)
+                else:
+                    template = env.get_template(template_name)
+            else:
+                template = env.get_template(template_name)
 
         return cls(
             template,
@@ -342,6 +442,7 @@ class TemplateSpec(Generic[TContext]):
             context_model=context_model,
             instrumentation=instrumentation if test_mode else None,
             source=original_source,
+            template_path=cov_path if collector and test_mode else None,
         )
 
     @property
@@ -432,6 +533,12 @@ class TemplateSpec(Generic[TContext]):
         if self._instrumentation:
             trace_events = self._instrumentation.trace_events
             anchor_index = AnchorIndex.from_text(text)
+
+        # Record coverage if enabled
+        if self._template_path:
+            collector = _get_coverage_collector()
+            if collector:
+                collector.record_render(self._template_path, trace_events)
 
         return RenderedPrompt(
             text=text,

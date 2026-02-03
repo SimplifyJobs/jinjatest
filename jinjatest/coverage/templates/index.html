@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Jinja Template Coverage Report</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Jinja Template Coverage Report</h1>
+
+    <div class="summary {coverage_class}">
+        <h2>Summary</h2>
+        <p>Total Coverage: <strong>{coverage_percent:.1f}%</strong></p>
+        <p>Templates: {template_count} | Branches: {covered_branches}/{total_branches}</p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Template</th>
+                <th class="num">Branches</th>
+                <th class="num">Covered</th>
+                <th class="num">Coverage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows}
+        </tbody>
+        <tfoot>
+            <tr class="{coverage_class}">
+                <td><strong>TOTAL</strong></td>
+                <td class="num"><strong>{total_branches}</strong></td>
+                <td class="num"><strong>{covered_branches}</strong></td>
+                <td class="num"><strong>{coverage_percent:.1f}%</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+</body>
+</html>

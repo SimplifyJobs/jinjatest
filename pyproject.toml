@@ -37,6 +37,7 @@ dev = [
 
 [project.entry-points.pytest11]
 jinjatest = "jinjatest.pytest_plugin"
+jinjatest_cov = "jinjatest.coverage.pytest_cov"
 
 [project.urls]
 Homepage = "https://github.com/jinjatest/jinjatest"
@@ -51,8 +52,24 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["jinjatest"]
 
+[tool.hatch.build.hooks.custom]
+path = "scripts/hatch_build.py"
+
 [tool.ty.environment]
 python-version = "3.10"
+
+[[tool.ty.overrides]]
+include = ["tests/"]
+
+[tool.ty.overrides.rules]
+# Tests frequently access attributes on union types after assertions narrow the type
+possibly-missing-attribute = "ignore"
+# Tests often use operators on optional types where context guarantees validity
+unsupported-operator = "warn"
+# Allow more flexible argument types in test code (e.g., MagicMock for pytest types)
+invalid-argument-type = "ignore"
+# Allow assignment to private attributes in tests (e.g., spec._env._loader = None)
+invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

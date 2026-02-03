@@ -1905,9 +1905,11 @@ class TestAnchorIndexFromTextWithAnchors:
         index = AnchorIndex.from_text(text)
 
         header = index.get_section("header")
+        assert header is not None
         assert "Header content" in header
 
         body = index.get_section("body")
+        assert body is not None
         assert "Body content" in body
 
 

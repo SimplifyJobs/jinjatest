@@ -64,6 +64,7 @@ include = ["tests/"]
 [tool.ty.overrides.rules]
 # Tests frequently access attributes on union types after assertions narrow the type
 possibly-missing-attribute = "ignore"
+unresolved-attribute = "ignore"
 # Tests often use operators on optional types where context guarantees validity
 unsupported-operator = "warn"
 # Allow more flexible argument types in test code (e.g., MagicMock for pytest types)

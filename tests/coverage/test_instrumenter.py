@@ -11,7 +11,7 @@ class TestInstrumentationResult:
         result = InstrumentationResult(
             source="modified",
             original_source="original",
-            discovery=None,  # type: ignore
+            discovery=None,
             insertions=1,
         )
         assert result.was_modified is True
@@ -21,7 +21,7 @@ class TestInstrumentationResult:
         result = InstrumentationResult(
             source="same",
             original_source="same",
-            discovery=None,  # type: ignore
+            discovery=None,
             insertions=0,
         )
         assert result.was_modified is False

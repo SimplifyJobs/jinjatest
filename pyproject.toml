@@ -66,8 +66,10 @@ include = ["tests/"]
 possibly-missing-attribute = "ignore"
 # Tests often use operators on optional types where context guarantees validity
 unsupported-operator = "warn"
-# Allow more flexible argument types in test code
-invalid-argument-type = "warn"
+# Allow more flexible argument types in test code (e.g., MagicMock for pytest types)
+invalid-argument-type = "ignore"
+# Allow assignment to private attributes in tests (e.g., spec._env._loader = None)
+invalid-assignment = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

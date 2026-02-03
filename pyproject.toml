@@ -52,6 +52,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["jinjatest"]
 
+[tool.hatch.build.hooks.custom]
+path = "scripts/hatch_build.py"
+
 [tool.ty.environment]
 python-version = "3.10"
 

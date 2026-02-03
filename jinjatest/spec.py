@@ -57,6 +57,7 @@ def _get_coverage_collector() -> CoverageCollector | None:
         if collector.enabled:
             return collector
     except ImportError:
+        # Coverage module is optional; proceed without collector if unavailable
         pass
     return None
 
@@ -298,7 +299,7 @@ class TemplateSpec(Generic[TContext]):
             context_model=context_model,
             instrumentation=instrumentation if test_mode else None,
             source=original_source,
-            template_path=cov_path if collector else None,
+            template_path=cov_path if collector and test_mode else None,
         )
 
     @classmethod
@@ -441,7 +442,7 @@ class TemplateSpec(Generic[TContext]):
             context_model=context_model,
             instrumentation=instrumentation if test_mode else None,
             source=original_source,
-            template_path=cov_path if _get_coverage_collector() else None,
+            template_path=cov_path if collector and test_mode else None,
         )
 
     @property

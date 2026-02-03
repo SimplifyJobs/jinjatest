@@ -419,7 +419,7 @@ pytest --jt-cov
 |--------|-------------|
 | `--jt-cov` | Enable template coverage |
 | `--jt-cov-fail-under=N` | Fail if coverage below N% |
-| `--jt-cov-report=TYPE` | Report type: `term`, `term-missing`, `html`, `json`, `xml` |
+| `--jt-cov-report=TYPE` | Report type: `term`, `term-missing`, `term-verbose`, `html`, `json`, `xml` |
 | `--jt-cov-html=DIR` | HTML report directory |
 | `--jt-cov-json=FILE` | JSON report file |
 | `--jt-cov-xml=FILE` | JUnit XML report file |

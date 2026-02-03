@@ -10,7 +10,7 @@ import json
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 from jinjatest.coverage._templates import (
     INDEX_HTML,
@@ -230,7 +230,7 @@ class JSONReporter:
         with open(path, "w") as f:
             self.report(summary, f)
 
-    def _template_to_dict(self, stats: TemplateCoverageStats) -> dict:
+    def _template_to_dict(self, stats: TemplateCoverageStats) -> dict[str, Any]:
         """Convert template stats to a dictionary.
 
         Args:

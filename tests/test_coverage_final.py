@@ -324,7 +324,8 @@ class TestPytestCovTomliImport:
         # This is tricky to test properly since we're on Python 3.11+
         # which has tomllib built-in. We verify the function works.
         from jinjatest.coverage.pytest_cov import _load_pyproject_config
+        from jinjatest.coverage.types import CoverageConfig
 
         # Just ensure it doesn't crash
         result = _load_pyproject_config()
-        assert isinstance(result, dict)
+        assert isinstance(result, CoverageConfig)

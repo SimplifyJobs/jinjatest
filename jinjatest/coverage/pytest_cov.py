@@ -7,24 +7,31 @@ Provides CLI options and hooks for coverage collection during test runs.
 from __future__ import annotations
 
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from jinjatest.coverage.collector import (
     get_coverage_collector,
     reset_coverage_collector,
 )
 from jinjatest.coverage.reporter import CoverageReporter, ReportConfig
+from jinjatest.coverage.types import (
+    CoverageConfig,
+    ReportType,
+    _normalize_and_validate_report_type,
+)
 
 
-def _load_pyproject_config() -> dict[str, Any]:
+def _load_pyproject_config() -> CoverageConfig:
     """Load coverage configuration from pyproject.toml.
 
     Returns:
-        Dictionary of coverage settings or empty dict if not found.
+        CoverageConfig instance with settings from pyproject.toml or defaults.
     """
-    tomllib: Any = None
+    tomllib: ModuleType | None = None
     try:
         import tomllib as _tomllib  # type: ignore[import-not-found]
 
@@ -35,18 +42,21 @@ def _load_pyproject_config() -> dict[str, Any]:
 
             tomllib = _tomli
         except ImportError:
-            return {}
+            return CoverageConfig()
 
     pyproject_path = Path("pyproject.toml")
     if not pyproject_path.exists():
-        return {}
+        return CoverageConfig()
 
     try:
         with open(pyproject_path, "rb") as f:
             data = tomllib.load(f)
-        return data.get("tool", {}).get("jinjatest", {}).get("coverage", {})
-    except Exception:
-        return {}
+        raw_config: dict[str, Any] = (
+            data.get("tool", {}).get("jinjatest", {}).get("coverage", {})
+        )
+        return CoverageConfig.model_validate(raw_config)
+    except (ValidationError, Exception):
+        return CoverageConfig()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -117,15 +127,14 @@ def pytest_configure(config: pytest.Config) -> None:
     """Configure coverage collection if enabled."""
     pyproject_config = _load_pyproject_config()
 
-    cov_enabled = config.getoption("--jt-cov") or pyproject_config.get("enabled", False)
+    cov_enabled = config.getoption("--jt-cov") or pyproject_config.enabled
 
     if cov_enabled:
         collector = get_coverage_collector()
         collector.enable()
 
-        cli_excludes = config.getoption("--jt-cov-exclude", [])
-        config_excludes = pyproject_config.get("exclude_patterns", [])
-        all_excludes = cli_excludes + config_excludes
+        cli_excludes: list[str] = config.getoption("--jt-cov-exclude", [])
+        all_excludes = cli_excludes + pyproject_config.exclude_patterns
         if all_excludes:
             collector.set_exclude_patterns(all_excludes)
 
@@ -133,7 +142,7 @@ def pytest_configure(config: pytest.Config) -> None:
         config._jt_cov_pyproject = pyproject_config  # type: ignore[attr-defined]
     else:
         config._jt_cov_enabled = False  # type: ignore[attr-defined]
-        config._jt_cov_pyproject = {}  # type: ignore[attr-defined]
+        config._jt_cov_pyproject = CoverageConfig()  # type: ignore[attr-defined]
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
@@ -153,23 +162,23 @@ def pytest_sessionfinish(
 
     collector = get_coverage_collector()
     summary = collector.get_summary()
-    pyproject_config = getattr(config, "_jt_cov_pyproject", {})
-
-    cli_fail_under = config.getoption("--jt-cov-fail-under", 0.0)
-    fail_under = (
-        cli_fail_under
-        if cli_fail_under > 0
-        else pyproject_config.get("fail_under", 0.0)
+    pyproject_config: CoverageConfig = getattr(
+        config, "_jt_cov_pyproject", CoverageConfig()
     )
 
-    cli_report_types = config.getoption("--jt-cov-report", [])
-    config_report_types = pyproject_config.get("report", [])
-    report_types = cli_report_types if cli_report_types else config_report_types
+    cli_fail_under: float = config.getoption("--jt-cov-fail-under", 0.0)
+    fail_under = cli_fail_under if cli_fail_under > 0 else pyproject_config.fail_under
+
+    cli_report_types: list[str] = config.getoption("--jt-cov-report", [])
+    if cli_report_types:
+        report_types: list[ReportType] = [
+            _normalize_and_validate_report_type(rt) for rt in cli_report_types
+        ]
+    else:
+        report_types = pyproject_config.report
 
     if not report_types:
         report_types = ["term"]
-
-    report_types = [r.lower() for r in report_types]
 
     report_config = ReportConfig(
         fail_under=fail_under,
@@ -194,16 +203,14 @@ def pytest_sessionfinish(
 
     if "json" in report_types:
         cli_json_path = config.getoption("--jt-cov-json")
-        json_path = cli_json_path or pyproject_config.get(
-            "json_file", "jt-coverage.json"
-        )
+        json_path = cli_json_path or pyproject_config.json_file
         reporter.json_report(summary, Path(json_path))
         if output:
             output.line(f"JSON report written to: {json_path}")
 
     if "html" in report_types:
         cli_html_dir = config.getoption("--jt-cov-html")
-        html_dir = cli_html_dir or pyproject_config.get("html_dir", "jt-htmlcov")
+        html_dir = cli_html_dir or pyproject_config.html_dir
         sources: dict[str, str] = {}
         for path, tracker in collector.get_all_trackers().items():
             if tracker.source:
@@ -214,7 +221,7 @@ def pytest_sessionfinish(
 
     if "xml" in report_types:
         cli_xml_path = config.getoption("--jt-cov-xml")
-        xml_path = cli_xml_path or pyproject_config.get("xml_file", "jt-coverage.xml")
+        xml_path = cli_xml_path or pyproject_config.xml_file
         reporter.junit_report(summary, Path(xml_path))
         if output:
             output.line(f"JUnit XML report written to: {xml_path}")

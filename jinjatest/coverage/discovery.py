@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 
 from jinja2 import Environment
 
+from jinjatest.coverage.types import BranchType
+
 if TYPE_CHECKING:
     from jinja2 import nodes
 
@@ -21,7 +23,7 @@ class BranchInfo:
     """Information about a single branch in a template."""
 
     branch_id: str
-    branch_type: str
+    branch_type: BranchType
     line: int
     description: str
     has_else: bool = False
@@ -152,11 +154,13 @@ class BranchDiscovery:
 
         line = node.lineno
         prefix = "elif" if in_elif else "if"
+        branch_type_true: BranchType = "elif_true" if in_elif else "if_true"
+        branch_type_false: BranchType = "elif_false" if in_elif else "if_false"
 
         branches.append(
             BranchInfo(
                 branch_id=f"{prefix}_{line}_true",
-                branch_type=f"{prefix}_true",
+                branch_type=branch_type_true,
                 line=line,
                 description=f"{prefix} condition at line {line} is true",
             )
@@ -182,7 +186,7 @@ class BranchDiscovery:
                 branches.append(
                     BranchInfo(
                         branch_id=f"{prefix}_{line}_false",
-                        branch_type=f"{prefix}_false",
+                        branch_type=branch_type_false,
                         line=line,
                         description=f"{prefix} condition at line {line} is false (else taken)",
                         has_else=True,
@@ -192,7 +196,7 @@ class BranchDiscovery:
                 branches.append(
                     BranchInfo(
                         branch_id=f"{prefix}_{line}_false",
-                        branch_type=f"{prefix}_false",
+                        branch_type=branch_type_false,
                         line=line,
                         description=f"{prefix} condition at line {line} is false (no else)",
                         has_else=False,
@@ -203,7 +207,7 @@ class BranchDiscovery:
                 branches.append(
                     BranchInfo(
                         branch_id=f"{prefix}_{line}_false",
-                        branch_type=f"{prefix}_false",
+                        branch_type=branch_type_false,
                         line=line,
                         description=f"{prefix} condition at line {line} is false (else taken)",
                         has_else=True,
@@ -213,7 +217,7 @@ class BranchDiscovery:
                 branches.append(
                     BranchInfo(
                         branch_id=f"{prefix}_{line}_false",
-                        branch_type=f"{prefix}_false",
+                        branch_type=branch_type_false,
                         line=line,
                         description=f"{prefix} condition at line {line} is false (no else)",
                         has_else=False,

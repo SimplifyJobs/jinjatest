@@ -51,6 +51,11 @@ from jinjatest.coverage.tracker import (
     TemplateCoverage,
     TemplateCoverageStats,
 )
+from jinjatest.coverage.types import (
+    BranchType,
+    CoverageConfig,
+    ReportType,
+)
 
 __all__ = [
     "CoverageCollector",
@@ -72,4 +77,7 @@ __all__ = [
     "HTMLReporter",
     "JUnitReporter",
     "ReportConfig",
+    "BranchType",
+    "CoverageConfig",
+    "ReportType",
 ]

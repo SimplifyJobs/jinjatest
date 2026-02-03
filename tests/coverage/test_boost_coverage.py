@@ -25,6 +25,7 @@ from jinjatest.coverage.reporter import (
     TerminalReporter,
 )
 from jinjatest.coverage.tracker import BranchCoverage, TemplateCoverageStats
+from jinjatest.coverage.types import CoverageConfig
 
 
 @pytest.fixture
@@ -323,9 +324,9 @@ class TestPytestCovPlugin:
         with mock.patch.dict("sys.modules", {"tomllib": None, "tomli": None}):
             # Force reimport to test the import error path
             with mock.patch.object(pytest_cov, "_load_pyproject_config") as mock_load:
-                mock_load.return_value = {}
+                mock_load.return_value = CoverageConfig()
                 result = mock_load()
-                assert result == {}
+                assert result == CoverageConfig()
 
     def test_load_pyproject_config_no_file(self) -> None:
         """Test config loading when pyproject.toml doesn't exist."""
@@ -333,7 +334,7 @@ class TestPytestCovPlugin:
 
         with mock.patch("pathlib.Path.exists", return_value=False):
             result = _load_pyproject_config()
-            assert result == {}
+            assert result == CoverageConfig()
 
     def test_load_pyproject_config_parse_error(self) -> None:
         """Test config loading handles parse errors."""
@@ -344,7 +345,7 @@ class TestPytestCovPlugin:
                 "builtins.open", mock.mock_open(read_data=b"invalid toml [")
             ):
                 result = _load_pyproject_config()
-                assert result == {}
+                assert result == CoverageConfig()
 
     def test_pytest_configure_enables_collector(self) -> None:
         """Test pytest_configure enables collector when --jt-cov is set."""
@@ -357,7 +358,8 @@ class TestPytestCovPlugin:
         }.get(x, default)
 
         with mock.patch(
-            "jinjatest.coverage.pytest_cov._load_pyproject_config", return_value={}
+            "jinjatest.coverage.pytest_cov._load_pyproject_config",
+            return_value=CoverageConfig(),
         ):
             pytest_configure(config)
 
@@ -377,7 +379,7 @@ class TestPytestCovPlugin:
 
         with mock.patch(
             "jinjatest.coverage.pytest_cov._load_pyproject_config",
-            return_value={"exclude_patterns": ["*.partial.j2"]},
+            return_value=CoverageConfig(exclude_patterns=["*.partial.j2"]),
         ):
             pytest_configure(config)
 
@@ -396,7 +398,8 @@ class TestPytestCovPlugin:
         }.get(x, default)
 
         with mock.patch(
-            "jinjatest.coverage.pytest_cov._load_pyproject_config", return_value={}
+            "jinjatest.coverage.pytest_cov._load_pyproject_config",
+            return_value=CoverageConfig(),
         ):
             pytest_configure(config)
 
@@ -454,7 +457,7 @@ class TestPytestCovPlugin:
 
         session = mock.MagicMock()
         session.config._jt_cov_enabled = True
-        session.config._jt_cov_pyproject = {}
+        session.config._jt_cov_pyproject = CoverageConfig()
         session.config.getoption.side_effect = lambda x, default=None: {
             "--jt-cov-fail-under": 0.0,
             "--jt-cov-report": ["term"],
@@ -486,7 +489,7 @@ class TestPytestCovPlugin:
 
             session = mock.MagicMock()
             session.config._jt_cov_enabled = True
-            session.config._jt_cov_pyproject = {}
+            session.config._jt_cov_pyproject = CoverageConfig()
             session.config.getoption.side_effect = lambda x, default=None: {
                 "--jt-cov-fail-under": 0.0,
                 "--jt-cov-report": ["json"],
@@ -517,7 +520,7 @@ class TestPytestCovPlugin:
 
             session = mock.MagicMock()
             session.config._jt_cov_enabled = True
-            session.config._jt_cov_pyproject = {}
+            session.config._jt_cov_pyproject = CoverageConfig()
             session.config.getoption.side_effect = lambda x, default=None: {
                 "--jt-cov-fail-under": 0.0,
                 "--jt-cov-report": ["html"],
@@ -549,7 +552,7 @@ class TestPytestCovPlugin:
 
             session = mock.MagicMock()
             session.config._jt_cov_enabled = True
-            session.config._jt_cov_pyproject = {}
+            session.config._jt_cov_pyproject = CoverageConfig()
             session.config.getoption.side_effect = lambda x, default=None: {
                 "--jt-cov-fail-under": 0.0,
                 "--jt-cov-report": ["xml"],
@@ -577,7 +580,7 @@ class TestPytestCovPlugin:
 
         session = mock.MagicMock()
         session.config._jt_cov_enabled = True
-        session.config._jt_cov_pyproject = {}
+        session.config._jt_cov_pyproject = CoverageConfig()
         session.config.getoption.side_effect = lambda x, default=None: {
             "--jt-cov-fail-under": 100.0,  # High threshold
             "--jt-cov-report": ["term"],
@@ -637,7 +640,7 @@ class TestPytestCovPlugin:
 
         session = mock.MagicMock()
         session.config._jt_cov_enabled = True
-        session.config._jt_cov_pyproject = {}
+        session.config._jt_cov_pyproject = CoverageConfig()
         session.config.getoption.side_effect = lambda x, default=None: {
             "--jt-cov-fail-under": 0.0,
             "--jt-cov-report": ["term"],
@@ -659,7 +662,7 @@ class TestPytestCovPlugin:
 
         session = mock.MagicMock()
         session.config._jt_cov_enabled = True
-        session.config._jt_cov_pyproject = {}
+        session.config._jt_cov_pyproject = CoverageConfig()
         session.config.getoption.side_effect = lambda x, default=None: {
             "--jt-cov-fail-under": 0.0,
             "--jt-cov-report": [],  # Empty - should default to term
@@ -688,7 +691,7 @@ class TestPytestCovPlugin:
 
         session = mock.MagicMock()
         session.config._jt_cov_enabled = True
-        session.config._jt_cov_pyproject = {}
+        session.config._jt_cov_pyproject = CoverageConfig()
         session.config.getoption.side_effect = lambda x, default=None: {
             "--jt-cov-fail-under": 0.0,
             "--jt-cov-report": ["term-missing"],
@@ -716,7 +719,7 @@ class TestPytestCovPlugin:
 
         session = mock.MagicMock()
         session.config._jt_cov_enabled = True
-        session.config._jt_cov_pyproject = {}
+        session.config._jt_cov_pyproject = CoverageConfig()
         session.config.getoption.side_effect = lambda x, default=None: {
             "--jt-cov-fail-under": 0.0,
             "--jt-cov-report": ["term-verbose"],
@@ -744,7 +747,7 @@ class TestPytestCovPlugin:
 
         session = mock.MagicMock()
         session.config._jt_cov_enabled = True
-        session.config._jt_cov_pyproject = {"fail_under": 100.0}
+        session.config._jt_cov_pyproject = CoverageConfig(fail_under=100.0)
         session.config.getoption.side_effect = lambda x, default=None: {
             "--jt-cov-fail-under": 0.0,  # CLI not set
             "--jt-cov-report": ["term"],

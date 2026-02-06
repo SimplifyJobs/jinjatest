@@ -239,25 +239,34 @@ spec.assert_variables_subset_of({"user_name", "plan", "items"})  # CI guardrails
 jinjatest tracks branch coverage by instrumenting your templates at render time. When you use `TemplateSpec`, it automatically discovers all conditional branches (`if`, `elif`, `else`, `for` loops, macros, etc.) and records which paths are executed during tests. This lets you identify untested template logic without modifying your templates.
 
 ```bash
-pytest --jt-cov --jt-cov-fail-under=80 --jt-cov-report=term
+pytest --jt-cov --jt-cov-fail-under=80 --jt-cov-report=term-verbose
 ```
 
 ```
-==================== Jinja Template Coverage ====================
-Name                          Branches    Covered    Missing  Cover
-------------------------------------------------------------------
-templates/welcome.j2                 4          3          1    75%
-templates/email/confirm.j2           6          6          0   100%
-templates/components/nav.j2          8          5          3    62%
-------------------------------------------------------------------
-TOTAL                               18         14          4    78%
+======================================================================
+JINJA TEMPLATE COVERAGE
+======================================================================
+
+Template                                   Branches    Covered   Coverage
+----------------------------------------------------------------------
+templates/components/nav.j2                       8          5      62.5%
+  - if_3_false: if condition at line 12 is false
+  - for_1_empty: for loop at line 18 has no items
+  - if_5_true: if condition at line 25 is true
+templates/email/confirm.j2                        6          6     100.0%
+templates/welcome.j2                              4          3      75.0%
+  - elif_1: elif branch at line 8 is taken
+----------------------------------------------------------------------
+TOTAL                                            18         14      77.8%
+
+FAIL: Coverage 77.8% < required 80.0%
 ```
 
 | Option | Description |
 |--------|-------------|
 | `--jt-cov` | Enable template coverage |
 | `--jt-cov-fail-under=N` | Fail if coverage below N% |
-| `--jt-cov-report=TYPE` | `term`, `term-missing`, `html`, `json`, `xml` |
+| `--jt-cov-report=TYPE` | `term`, `term-missing`, `term-verbose`, `html`, `json`, `xml` |
 | `--jt-cov-exclude=PATTERN` | Exclude templates by glob |
 
 **pyproject.toml:**

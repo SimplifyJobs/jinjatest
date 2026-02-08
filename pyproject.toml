@@ -8,7 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Kevin Castro <hola@kev.pe>" }]
 keywords = ["jinja", "jinja2", "testing", "templates", "pytest", "json", "xml", "yaml", "markdown"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -40,10 +40,10 @@ jinjatest = "jinjatest.pytest_plugin"
 jinjatest_cov = "jinjatest.coverage.pytest_cov"
 
 [project.urls]
-Homepage = "https://github.com/jinjatest/jinjatest"
-Documentation = "https://github.com/jinjatest/jinjatest#readme"
-Repository = "https://github.com/jinjatest/jinjatest"
-Issues = "https://github.com/jinjatest/jinjatest/issues"
+Homepage = "https://github.com/SimplifyJobs/jinjatest"
+Documentation = "https://github.com/SimplifyJobs/jinjatest#readme"
+Repository = "https://github.com/SimplifyJobs/jinjatest"
+Issues = "https://github.com/SimplifyJobs/jinjatest/issues"
 
 [build-system]
 requires = ["hatchling"]

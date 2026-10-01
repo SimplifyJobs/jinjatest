@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from jinjatest.instrumentation import AnchorIndex
+from jinjatest.instrumentation import ANCHOR_PATTERN, AnchorIndex
 from jinjatest.parsers.fenced_blocks import parse_fenced_blocks
 from jinjatest.parsers.json_parser import parse_json
 from jinjatest.parsers.markdown import (
@@ -84,31 +84,63 @@ class RenderedPromptSection:
         return bool(re.search(pattern, self.text, flags))
 
 
-@dataclass
+@dataclass(init=False)
 class RenderedPrompt:
     """Holds rendered template output with query helpers.
 
+    The `text` property is always the output a production render would
+    produce: anchor sentinels emitted by test instrumentation are stripped.
+    The untouched render output (sentinels included) is kept on `raw_text`.
+
     Attributes:
-        text: The raw rendered text.
+        raw_text: The rendered template output exactly as produced by Jinja,
+            including any anchor sentinel markers.
         trace_events: List of trace events recorded during rendering (if instrumentation enabled).
-        anchor_index: Index of anchor positions (if instrumentation enabled).
+        anchor_index: Index of anchor positions in the clean text (if instrumentation enabled).
     """
 
-    text: str
-    trace_events: list[str] = field(default_factory=list)
-    anchor_index: AnchorIndex | None = None
+    raw_text: str
+    trace_events: list[str]
+    anchor_index: AnchorIndex | None
+
+    def __init__(
+        self,
+        text: str,
+        trace_events: list[str] | None = None,
+        anchor_index: AnchorIndex | None = None,
+    ) -> None:
+        """Initialize a RenderedPrompt.
+
+        Args:
+            text: The rendered template output. If it contains anchor
+                sentinels, the `text` property returns it stripped while
+                `raw_text` preserves it verbatim.
+            trace_events: Trace events recorded during rendering.
+            anchor_index: Index of anchor positions in the clean text.
+        """
+        self.raw_text = text
+        self.trace_events = trace_events if trace_events is not None else []
+        self.anchor_index = anchor_index
+
+    @property
+    def text(self) -> str:
+        """Get the rendered text with anchor sentinels removed.
+
+        This matches what the template renders in production. Use `raw_text`
+        for the original output including sentinel markers.
+        """
+        if self.anchor_index is not None:
+            return self.anchor_index.clean_text
+        return ANCHOR_PATTERN.sub("", self.raw_text)
 
     @property
     def normalized(self) -> str:
         """Get normalized text (whitespace-collapsed, trimmed)."""
-        base_text = self.anchor_index.clean_text if self.anchor_index else self.text
-        return normalize_text(base_text)
+        return normalize_text(self.text)
 
     @property
     def clean_text(self) -> str:
-        """Get text with anchor markers removed (if any)."""
-        if self.anchor_index:
-            return self.anchor_index.clean_text
+        """Alias for `text` (anchor markers removed), kept for back-compat."""
         return self.text
 
     @property

@@ -154,7 +154,7 @@ Options: `template_dir`, `strict_undefined=True`, `test_mode=True`, `use_comment
 
 ### RenderedPrompt
 
-**Properties:** `text`, `normalized`, `clean_text`, `lines`, `normalized_lines`, `trace_events`
+**Properties:** `text` (clean, anchor sentinels stripped), `raw_text` (original output, sentinels included), `normalized`, `clean_text`, `lines`, `normalized_lines`, `trace_events`
 
 **Parsing:**
 ```python

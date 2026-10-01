@@ -319,6 +319,48 @@ class TestTraceRecorderDirect:
         assert recorder.events.count("event1") == 2
 
 
+class TestRenderedTextAnchorSentinels:
+    """RenderedPrompt.text must be the clean output a production render yields."""
+
+    def test_text_strips_anchor_sentinels(self) -> None:
+        """rendered.text must not leak \\x1eANCHOR:... sentinel markers."""
+        spec = TemplateSpec.from_string("A{#jt:anchor:sec#}B\n{{ x }}")
+        rendered = spec.render({"x": "hi"})
+
+        assert rendered.text == "AB\nhi"
+        assert "\x1e" not in rendered.text
+        assert "ANCHOR:" not in rendered.text
+        assert rendered.text == rendered.clean_text
+
+    def test_raw_text_preserves_anchor_sentinels(self) -> None:
+        """raw_text exposes the original output, sentinels included."""
+        spec = TemplateSpec.from_string("A{#jt:anchor:sec#}B\n{{ x }}")
+        rendered = spec.render({"x": "hi"})
+
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+
+    def test_query_helpers_and_asserts_agree_across_anchor(self) -> None:
+        """RenderedPrompt helpers and PromptAsserts see the same text."""
+        spec = TemplateSpec.from_string("A{#jt:anchor:sec#}B\n{{ x }}")
+        rendered = spec.render({"x": "hi"})
+
+        # "AB" spans the anchor's position; both APIs must agree on it.
+        assert rendered.contains("AB")
+        PromptAsserts(rendered).contains("AB")
+        PromptAsserts(rendered).equals(rendered.text)
+
+    def test_text_clean_for_template_file(self, tmp_path: Path) -> None:
+        """The same guarantee holds when rendering a template file."""
+        template_file = tmp_path / "anchored.j2"
+        template_file.write_text("A{#jt:anchor:sec#}B\n{{ x }}")
+
+        spec = TemplateSpec.from_file(template_file)
+        rendered = spec.render({"x": "hi"})
+
+        assert rendered.text == "AB\nhi"
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+
+
 class TestInstrumentationDisabled:
     """Test instrumentation when disabled."""
 

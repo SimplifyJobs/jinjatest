@@ -30,9 +30,9 @@ dependencies = [
 [project.optional-dependencies]
 yaml = ["pyyaml>=6.0.2,<7.0.0"]
 dev = [
-    "pytest~=9.0.2",
+    "pytest>=9.0.2,<9.2.0",
     "pyyaml>=6.0.2,<7.0.0",
-    "ruff~=0.14.13",
+    "ruff>=0.14.13,<0.17.0",
     "ty==0.0.84",
 ]
 

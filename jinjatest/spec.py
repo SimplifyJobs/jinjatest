@@ -566,8 +566,9 @@ class TemplateSpec(Generic[TContext]):
             ContextValidationError: If context validation fails.
             TemplateRenderError: If rendering fails.
         """
-        # Clear instrumentation from previous render
-        if self._instrumentation:
+        # Clear instrumentation from previous render — only when coverage is
+        # recording this template, so plain renders stay side-effect-free.
+        if self._template_path is not None and self._instrumentation:
             self._instrumentation.clear()
 
         if isinstance(context, BaseModel):
@@ -616,22 +617,24 @@ class TemplateSpec(Generic[TContext]):
 
         @functools.wraps(macro_fn)
         def recorded_macro(*args: Any, **kwargs: Any) -> str:
+            # Coverage is only recorded when this template was registered with
+            # a collector at construction time. Otherwise skip the
+            # instrumentation bookkeeping so plain calls stay side-effect-free.
+            if self._template_path is None:
+                return macro_fn(*args, **kwargs)
+
             # Clear instrumentation so stale events aren't re-recorded
             if self._instrumentation:
                 self._instrumentation.clear()
 
             result = macro_fn(*args, **kwargs)
 
-            # Record coverage if enabled
-            if self._template_path:
-                collector = _get_coverage_collector()
-                if collector:
-                    trace_events = (
-                        self._instrumentation.trace_events
-                        if self._instrumentation
-                        else []
-                    )
-                    collector.record_render(self._template_path, trace_events)
+            collector = _get_coverage_collector()
+            if collector:
+                trace_events = (
+                    self._instrumentation.trace_events if self._instrumentation else []
+                )
+                collector.record_render(self._template_path, trace_events)
 
             return result
 

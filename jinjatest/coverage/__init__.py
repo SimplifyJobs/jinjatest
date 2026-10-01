@@ -38,6 +38,10 @@ from jinjatest.coverage.instrumenter import (
     AutoInstrumenter,
     InstrumentationResult,
 )
+from jinjatest.coverage.loader import (
+    CoverageLoader,
+    unwrap_loader,
+)
 from jinjatest.coverage.reporter import (
     CoverageReporter,
     HTMLReporter,
@@ -68,6 +72,8 @@ __all__ = [
     "DiscoveryResult",
     "AutoInstrumenter",
     "InstrumentationResult",
+    "CoverageLoader",
+    "unwrap_loader",
     "TemplateCoverage",
     "TemplateCoverageStats",
     "BranchCoverage",

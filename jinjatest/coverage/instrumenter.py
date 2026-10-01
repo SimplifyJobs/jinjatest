@@ -80,21 +80,27 @@ class AutoInstrumenter:
     def __init__(self) -> None:
         """Initialize the auto-instrumenter."""
         self._discovery = BranchDiscovery()
+        self._event_prefix = ""
 
     def instrument(
         self,
         source: str,
         template_path: str | None = None,
+        event_prefix: str = "",
     ) -> InstrumentationResult:
         """Instrument a template source with trace calls.
 
         Args:
             source: The template source code.
             template_path: Optional path for identification.
+            event_prefix: Optional prefix prepended to every emitted trace
+                event id (e.g., "child.j2::" for loader-instrumented
+                templates). User-written jt.trace() calls are left as-is.
 
         Returns:
             InstrumentationResult containing the instrumented source.
         """
+        self._event_prefix = event_prefix
         discovery = self._discovery.discover(source, template_path)
 
         line_branches: dict[int, list[str]] = {}
@@ -160,7 +166,7 @@ class AutoInstrumenter:
             nonlocal count
             count += 1
             tag = match.group(1)
-            trace_call = f'{{{{ jt.trace("if_{line_num}_true") }}}}'
+            trace_call = f'{{{{ jt.trace("{self._event_prefix}if_{line_num}_true") }}}}'
             return f"{tag}{trace_call}"
 
         new_line = self.IF_PATTERN.sub(replace_if, line)
@@ -182,7 +188,9 @@ class AutoInstrumenter:
             nonlocal count
             count += 1
             tag = match.group(1)
-            trace_call = f'{{{{ jt.trace("elif_{line_num}_true") }}}}'
+            trace_call = (
+                f'{{{{ jt.trace("{self._event_prefix}elif_{line_num}_true") }}}}'
+            )
             return f"{tag}{trace_call}"
 
         new_line = self.ELIF_PATTERN.sub(replace_elif, line)
@@ -213,7 +221,7 @@ class AutoInstrumenter:
             if branch_id:
                 count += 1
                 tag = match.group(1)
-                trace_call = f'{{{{ jt.trace("{branch_id}") }}}}'
+                trace_call = f'{{{{ jt.trace("{self._event_prefix}{branch_id}") }}}}'
                 return f"{tag}{trace_call}"
 
             return match.group(0)
@@ -266,7 +274,9 @@ class AutoInstrumenter:
             nonlocal count
             count += 1
             tag = match.group(1)
-            trace_call = f'{{{{ jt.trace("for_{line_num}_body") }}}}'
+            trace_call = (
+                f'{{{{ jt.trace("{self._event_prefix}for_{line_num}_body") }}}}'
+            )
             return f"{tag}{trace_call}"
 
         new_line = self.FOR_PATTERN.sub(replace_for, line)
@@ -288,7 +298,7 @@ class AutoInstrumenter:
             count += 1
             tag = match.group(1)
             macro_name = match.group(2)
-            trace_call = f'{{{{ jt.trace("macro_{macro_name}") }}}}'
+            trace_call = f'{{{{ jt.trace("{self._event_prefix}macro_{macro_name}") }}}}'
             return f"{tag}{trace_call}"
 
         new_line = self.MACRO_PATTERN.sub(replace_macro, line)
@@ -310,7 +320,7 @@ class AutoInstrumenter:
             count += 1
             tag = match.group(1)
             block_name = match.group(2)
-            trace_call = f'{{{{ jt.trace("block_{block_name}") }}}}'
+            trace_call = f'{{{{ jt.trace("{self._event_prefix}block_{block_name}") }}}}'
             return f"{tag}{trace_call}"
 
         new_line = self.BLOCK_PATTERN.sub(replace_block, line)
@@ -373,14 +383,20 @@ class AutoInstrumenter:
                     _, start_line, last_branch_line, has_else = stack.pop()
                     if not has_else and last_branch_line in implicit_branches:
                         branch_id = implicit_branches[last_branch_line]
-                        insert_text = f'{{% else %}}{{{{ jt.trace("{branch_id}") }}}}'
+                        insert_text = (
+                            f"{{% else %}}"
+                            f'{{{{ jt.trace("{self._event_prefix}{branch_id}") }}}}'
+                        )
                         insertions.append((tag_start, insert_text))
             elif keyword == "endfor":
                 if stack and stack[-1][0] == "for":
                     _, start_line, _, has_else = stack.pop()
                     if not has_else and start_line in implicit_branches:
                         branch_id = implicit_branches[start_line]
-                        insert_text = f'{{% else %}}{{{{ jt.trace("{branch_id}") }}}}'
+                        insert_text = (
+                            f"{{% else %}}"
+                            f'{{{{ jt.trace("{self._event_prefix}{branch_id}") }}}}'
+                        )
                         insertions.append((tag_start, insert_text))
 
         insertions.sort(key=lambda x: x[0], reverse=True)

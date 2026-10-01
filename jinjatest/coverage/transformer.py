@@ -33,10 +33,17 @@ class CondExprTransformer(NodeTransformer):
     the value unchanged. Only the taken branch is evaluated.
     """
 
-    def __init__(self) -> None:
-        """Initialize the transformer."""
+    def __init__(self, event_prefix: str = "") -> None:
+        """Initialize the transformer.
+
+        Args:
+            event_prefix: Optional prefix prepended to every emitted trace
+                event id (e.g., "child.j2::" for loader-instrumented
+                templates).
+        """
         self.count = 0
         self.instrumented: list[dict[str, str | int]] = []
+        self.event_prefix = event_prefix
 
     def _wrap_with_trace(
         self, expr: nodes.Expr, branch_id: str, lineno: int
@@ -87,11 +94,11 @@ class CondExprTransformer(NodeTransformer):
         self.generic_visit(node)
 
         traced_expr1 = self._wrap_with_trace(
-            node.expr1, f"{branch_id}_true", node.lineno
+            node.expr1, f"{self.event_prefix}{branch_id}_true", node.lineno
         )
         traced_expr2 = self._wrap_with_trace(
             node.expr2 if node.expr2 is not None else nodes.Const(None),
-            f"{branch_id}_false",
+            f"{self.event_prefix}{branch_id}_false",
             node.lineno,
         )
 

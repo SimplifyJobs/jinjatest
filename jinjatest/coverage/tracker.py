@@ -72,19 +72,22 @@ class TemplateCoverage:
         self,
         source: str,
         template_path: str | None = None,
+        event_prefix: str = "",
     ) -> None:
         """Initialize coverage tracking for a template.
 
         Args:
             source: The template source code.
             template_path: Optional path for identification in reports.
+            event_prefix: Optional prefix prepended to emitted trace event
+                ids (e.g., "child.j2::" for loader-instrumented templates).
         """
         self._source = source
         self._template_path = template_path
 
         self._instrumenter = AutoInstrumenter()
         self._instrumentation_result = self._instrumenter.instrument(
-            source, template_path
+            source, template_path, event_prefix=event_prefix
         )
 
         self._hits: dict[str, int] = {

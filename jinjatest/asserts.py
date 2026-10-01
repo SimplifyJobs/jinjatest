@@ -363,7 +363,7 @@ class PromptAsserts:
             snapshot_path.write_text(self.text)
             return self
 
-        if not snapshot_path.exists():
+        if not snapshot_path.is_file():
             raise PromptAssertionError(
                 f"Snapshot '{name}' does not exist at {snapshot_path}.\n"
                 f"Run with update=True to create it."

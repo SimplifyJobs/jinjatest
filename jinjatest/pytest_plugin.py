@@ -201,7 +201,7 @@ class SnapshotManager:
             snapshot_path.write_text(content)
             return
 
-        if not snapshot_path.exists():
+        if not snapshot_path.is_file():
             raise AssertionError(
                 f"Snapshot '{name}' does not exist at {snapshot_path}.\n"
                 f"Run with --update-snapshots to create it."

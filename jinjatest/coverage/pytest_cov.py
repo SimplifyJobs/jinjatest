@@ -45,7 +45,7 @@ def _load_pyproject_config() -> CoverageConfig:
             return CoverageConfig()
 
     pyproject_path = Path("pyproject.toml")
-    if not pyproject_path.exists():
+    if not pyproject_path.is_file():
         return CoverageConfig()
 
     try:

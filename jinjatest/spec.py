@@ -6,6 +6,7 @@ Provides a type-safe, test-friendly interface for working with Jinja templates.
 
 from __future__ import annotations
 
+import functools
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, cast, overload
 
@@ -565,13 +566,17 @@ class TemplateSpec(Generic[TContext]):
             ContextValidationError: If context validation fails.
             TemplateRenderError: If rendering fails.
         """
+        # Clear instrumentation from previous render
+        if self._instrumentation:
+            self._instrumentation.clear()
+
         if isinstance(context, BaseModel):
             ctx_dict = context.model_dump()
         else:
             ctx_dict = self._validate_context(context)
 
         try:
-            return self._template.render(ctx_dict)
+            result = self._template.render(ctx_dict)
         except UndefinedError as e:
             raise TemplateRenderError(
                 f"Undefined variable in template: {e}", original_error=e
@@ -580,6 +585,17 @@ class TemplateSpec(Generic[TContext]):
             raise TemplateRenderError(
                 f"Template rendering failed: {e}", original_error=e
             ) from e
+
+        # Record coverage if enabled
+        if self._template_path:
+            collector = _get_coverage_collector()
+            if collector:
+                trace_events = (
+                    self._instrumentation.trace_events if self._instrumentation else []
+                )
+                collector.record_render(self._template_path, trace_events)
+
+        return result
 
     def macro(self, name: str) -> Callable[..., str]:
         """Get a macro from the template as a callable.
@@ -597,7 +613,29 @@ class TemplateSpec(Generic[TContext]):
         macro_fn = getattr(module, name, None)
         if macro_fn is None:
             raise AttributeError(f"Macro '{name}' not found in template")
-        return macro_fn
+
+        @functools.wraps(macro_fn)
+        def recorded_macro(*args: Any, **kwargs: Any) -> str:
+            # Clear instrumentation so stale events aren't re-recorded
+            if self._instrumentation:
+                self._instrumentation.clear()
+
+            result = macro_fn(*args, **kwargs)
+
+            # Record coverage if enabled
+            if self._template_path:
+                collector = _get_coverage_collector()
+                if collector:
+                    trace_events = (
+                        self._instrumentation.trace_events
+                        if self._instrumentation
+                        else []
+                    )
+                    collector.record_render(self._template_path, trace_events)
+
+            return result
+
+        return recorded_macro
 
     def get_undeclared_variables(self) -> set[str]:
         """Get undeclared variables from the template AST.

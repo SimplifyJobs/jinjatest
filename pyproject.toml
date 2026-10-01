@@ -1,6 +1,6 @@
 [project]
 name = "jinjatest"
-version = "0.3.0"
+version = "0.3.1"
 description = "A type-safe, structured testing library for Jinja templates"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,17 +22,18 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "jinja2>=3.1.3,<4.0.0",
+    "jinja2>=3.1.6,<4.0.0",
     "pydantic>=2.12.0,<3.0.0",
+    "tomli>=2.0.1,<3.0.0; python_version<'3.11'",
 ]
 
 [project.optional-dependencies]
-yaml = ["pyyaml>=6.0.1,<7.0.0"]
+yaml = ["pyyaml>=6.0.2,<7.0.0"]
 dev = [
     "pytest~=9.0.2",
-    "pyyaml>=6.0.1,<7.0.0",
+    "pyyaml>=6.0.2,<7.0.0",
     "ruff~=0.14.13",
-    "ty>=0.0.12",
+    "ty==0.0.84",
 ]
 
 [project.entry-points.pytest11]
@@ -71,6 +72,8 @@ unsupported-operator = "warn"
 invalid-argument-type = "ignore"
 # Allow assignment to private attributes in tests (e.g., spec._env._loader = None)
 invalid-assignment = "ignore"
+# Tests branch on literal values to exercise fixture logic
+redundant-condition = "ignore"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -78,7 +81,7 @@ addopts = "-v"
 
 [dependency-groups]
 dev = [
-    "pytest-cov>=7.0.0",
+    "pytest-cov~=7.1.0",
 ]
 
 [tool.coverage.run]

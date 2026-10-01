@@ -7,7 +7,7 @@ Provides a type-safe, test-friendly interface for working with Jinja templates.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, cast, overload
 
 from jinja2 import (
     BaseLoader,
@@ -17,6 +17,7 @@ from jinja2 import (
     FileSystemLoader,
     StrictUndefined,
     Template,
+    Undefined,
     UndefinedError,
     meta,
 )
@@ -164,7 +165,7 @@ def create_environment(
     # Create environment
     env = env_class(
         loader=loader,
-        undefined=StrictUndefined if strict_undefined else None,
+        undefined=StrictUndefined if strict_undefined else Undefined,
         extensions=env_extensions if env_extensions else [],
     )
 
@@ -178,7 +179,7 @@ def create_environment(
 
     # Add custom tests
     if tests:
-        env.tests.update(tests)
+        env.tests.update(cast(Any, tests))
 
     return env
 
@@ -274,11 +275,11 @@ class TemplateSpec(Generic[TContext]):
             )
 
         instrumentation = create_instrumentation(test_mode=test_mode)
-        env.globals["jt"] = instrumentation
+        env.globals["jt"] = cast(Any, instrumentation)
 
         # Inject trace function for CondExpr coverage
         if collector and test_mode:
-            env.globals["_trace_branch"] = instrumentation.trace_branch
+            env.globals["_trace_branch"] = cast(Any, instrumentation.trace_branch)
         if collector and test_mode:
             # Generate unique path for string templates to avoid collisions
             if template_path:
@@ -349,8 +350,11 @@ class TemplateSpec(Generic[TContext]):
                 template_dir = Path(template_dir)
 
             # Set up template paths
-            template_paths = env_kwargs.pop("template_paths", None) or []
-            template_paths = [template_dir] + [Path(p) for p in template_paths]
+            extra_paths = env_kwargs.pop("template_paths", None) or []
+            template_paths: list[str | Path] = [
+                template_dir,
+                *(Path(p) for p in extra_paths),
+            ]
 
             # Enable condexpr coverage if collector is enabled
             env = create_environment(
@@ -359,11 +363,11 @@ class TemplateSpec(Generic[TContext]):
                 **env_kwargs,
             )
             instrumentation = create_instrumentation(test_mode=test_mode)
-            env.globals["jt"] = instrumentation
+            env.globals["jt"] = cast(Any, instrumentation)
 
             # Inject trace function for CondExpr coverage
             if collector and test_mode:
-                env.globals["_trace_branch"] = instrumentation.trace_branch
+                env.globals["_trace_branch"] = cast(Any, instrumentation.trace_branch)
         else:
             # For provided env, check if already instrumented
             existing_jt = env.globals.get("jt")
@@ -373,11 +377,11 @@ class TemplateSpec(Generic[TContext]):
                 instrumentation = existing_jt
             else:
                 instrumentation = create_instrumentation(test_mode=test_mode)
-                env.globals["jt"] = instrumentation
+                env.globals["jt"] = cast(Any, instrumentation)
 
             # Inject trace function for CondExpr coverage if not already present
             if collector and test_mode and "_trace_branch" not in env.globals:
-                env.globals["_trace_branch"] = instrumentation.trace_branch
+                env.globals["_trace_branch"] = cast(Any, instrumentation.trace_branch)
 
         # Determine template name based on how env was obtained
         # When env is provided or template_dir is explicitly set, use full path

@@ -33,12 +33,12 @@ def _load_pyproject_config() -> CoverageConfig:
     """
     tomllib: ModuleType | None = None
     try:
-        import tomllib as _tomllib  # type: ignore[import-not-found]
+        import tomllib as _tomllib  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
 
         tomllib = _tomllib
     except ImportError:
         try:
-            import tomli as _tomli  # type: ignore[import-not-found]
+            import tomli as _tomli  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
 
             tomllib = _tomli
         except ImportError:
@@ -138,11 +138,11 @@ def pytest_configure(config: pytest.Config) -> None:
         if all_excludes:
             collector.set_exclude_patterns(all_excludes)
 
-        config._jt_cov_enabled = True  # type: ignore[attr-defined]
-        config._jt_cov_pyproject = pyproject_config  # type: ignore[attr-defined]
+        config._jt_cov_enabled = True  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        config._jt_cov_pyproject = pyproject_config  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
     else:
-        config._jt_cov_enabled = False  # type: ignore[attr-defined]
-        config._jt_cov_pyproject = CoverageConfig()  # type: ignore[attr-defined]
+        config._jt_cov_enabled = False  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        config._jt_cov_pyproject = CoverageConfig()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
@@ -227,7 +227,7 @@ def pytest_sessionfinish(
             output.line(f"JUnit XML report written to: {xml_path}")
 
     if fail_under > 0 and summary.coverage_percent < fail_under:
-        session.config._jt_cov_failed = True  # type: ignore[attr-defined]
+        session.config._jt_cov_failed = True  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
 def pytest_terminal_summary(

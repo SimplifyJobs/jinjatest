@@ -677,12 +677,14 @@ class TestSnapshotAssertion:
     """Tests for snapshot assertion functionality."""
 
     def test_snapshot_creates_file(self, tmp_path) -> None:
-        """Test snapshot creates file when it doesn't exist."""
+        """Test snapshot creates file when update=True."""
         spec = TemplateSpec.from_string("Hello World")
         rendered = spec.render({})
 
         snapshot_dir = tmp_path / "snapshots"
-        PromptAsserts(rendered).snapshot("test_output", snapshot_dir=snapshot_dir)
+        PromptAsserts(rendered).snapshot(
+            "test_output", snapshot_dir=snapshot_dir, update=True
+        )
 
         snapshot_file = snapshot_dir / "test_output.txt"
         assert snapshot_file.exists()

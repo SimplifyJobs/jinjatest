@@ -353,14 +353,21 @@ class PromptAsserts:
             Self for chaining.
 
         Raises:
-            PromptAssertionError: If snapshot doesn't match.
+            PromptAssertionError: If snapshot doesn't match, or if the
+                snapshot doesn't exist and update is False.
         """
         snapshot_path = Path(snapshot_dir) / f"{name}.txt"
 
-        if update or not snapshot_path.exists():
+        if update:
             snapshot_path.parent.mkdir(parents=True, exist_ok=True)
             snapshot_path.write_text(self.text)
             return self
+
+        if not snapshot_path.exists():
+            raise PromptAssertionError(
+                f"Snapshot '{name}' does not exist at {snapshot_path}.\n"
+                f"Run with update=True to create it."
+            )
 
         expected = snapshot_path.read_text()
         if self.text != expected:

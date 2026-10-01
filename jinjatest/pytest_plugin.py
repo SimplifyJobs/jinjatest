@@ -191,14 +191,21 @@ class SnapshotManager:
             content: The content to compare/save.
 
         Raises:
-            AssertionError: If snapshot doesn't match and update is False.
+            AssertionError: If snapshot doesn't match and update is False,
+                or if the snapshot doesn't exist and update is False.
         """
         snapshot_path = self.base_dir / f"{name}.txt"
 
-        if self.update or not snapshot_path.exists():
+        if self.update:
             snapshot_path.parent.mkdir(parents=True, exist_ok=True)
             snapshot_path.write_text(content)
             return
+
+        if not snapshot_path.exists():
+            raise AssertionError(
+                f"Snapshot '{name}' does not exist at {snapshot_path}.\n"
+                f"Run with --update-snapshots to create it."
+            )
 
         expected = snapshot_path.read_text()
         if content != expected:

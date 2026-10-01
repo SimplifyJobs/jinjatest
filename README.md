@@ -221,6 +221,9 @@ def test_with_snapshots(snapshot_manager, template_from_string):
 
 Update snapshots: `pytest --update-snapshots`
 
+Snapshots must exist to pass: a missing snapshot fails the test unless you
+create it with `--update-snapshots` (or `update=True` for `PromptAsserts.snapshot`).
+
 ## Advanced Configuration
 
 ```python

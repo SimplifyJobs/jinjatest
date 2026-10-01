@@ -228,6 +228,7 @@ def pytest_sessionfinish(
 
     if fail_under > 0 and summary.coverage_percent < fail_under:
         session.config._jt_cov_failed = True  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
 def pytest_terminal_summary(

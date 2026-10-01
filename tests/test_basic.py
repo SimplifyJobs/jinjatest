@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from jinjatest import (
     ContextValidationError,
+    PromptAssertionError,
     PromptAsserts,
     TemplateRenderError,
     TemplateSpec,
@@ -686,6 +687,21 @@ class TestSnapshotAssertion:
         snapshot_file = snapshot_dir / "test_output.txt"
         assert snapshot_file.exists()
         assert snapshot_file.read_text() == "Hello World"
+
+    def test_snapshot_missing_fails(self, tmp_path) -> None:
+        """Test snapshot fails when the file doesn't exist and update=False."""
+        spec = TemplateSpec.from_string("Hello World")
+        rendered = spec.render({})
+
+        snapshot_dir = tmp_path / "snapshots"
+        with pytest.raises(PromptAssertionError) as exc_info:
+            PromptAsserts(rendered).snapshot("test_output", snapshot_dir=snapshot_dir)
+
+        message = str(exc_info.value)
+        assert "test_output" in message
+        assert "update=True" in message
+        # The snapshot file must not be silently created
+        assert not (snapshot_dir / "test_output.txt").exists()
 
     def test_snapshot_matches_existing(self, tmp_path) -> None:
         """Test snapshot passes when content matches."""

@@ -140,6 +140,20 @@ class TestSnapshotManagerDirect:
         # Should not raise
         manager.compare_or_update("existing", "Expected content")
 
+    def test_snapshot_manager_missing_fails(self, tmp_path) -> None:
+        """Test that a missing snapshot fails when update is False."""
+        from jinjatest.pytest_plugin import SnapshotManager
+
+        manager = SnapshotManager(tmp_path, update=False)
+        with pytest.raises(AssertionError) as exc_info:
+            manager.compare_or_update("missing_snap", "Content")
+
+        message = str(exc_info.value)
+        assert "missing_snap" in message
+        assert "--update-snapshots" in message
+        # The snapshot file must not be silently created
+        assert not (tmp_path / "missing_snap.txt").exists()
+
     def test_snapshot_manager_update_existing(self, tmp_path) -> None:
         """Test updating existing snapshot."""
         from jinjatest.pytest_plugin import SnapshotManager

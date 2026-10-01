@@ -388,6 +388,27 @@ class TestRenderedTextAnchorSentinels:
         assert replaced.text == "new text"
         assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB"
 
+    def test_raw_text_assignment_updates_clean_text(self) -> None:
+        """Assigning .raw_text directly must refresh the cached clean text."""
+        rendered = RenderedPrompt(text="before")
+
+        rendered.raw_text = "A\x1eANCHOR:sec\x1eB\nhi"
+
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+        assert rendered.text == "AB\nhi"
+        assert rendered.clean_text == "AB\nhi"
+        assert rendered.contains("AB")
+
+    def test_text_setter_after_raw_text_assignment(self) -> None:
+        """The .text setter path still works after a direct raw_text write."""
+        rendered = RenderedPrompt(text="before")
+
+        rendered.raw_text = "A\x1eANCHOR:sec\x1eB\nhi"
+        rendered.text = "C\x1eANCHOR:end\x1eD"
+
+        assert rendered.raw_text == "C\x1eANCHOR:end\x1eD"
+        assert rendered.text == "CD"
+
 
 class TestInstrumentationDisabled:
     """Test instrumentation when disabled."""

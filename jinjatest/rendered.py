@@ -90,12 +90,14 @@ class RenderedPrompt:
 
     The `text` property is always the output a production render would
     produce: anchor sentinels emitted by test instrumentation are stripped.
-    The stripped text is computed once at construction and cached. The
-    untouched render output (sentinels included) is kept on `raw_text`.
+    The stripped text is cached on `_clean_text`. The untouched render
+    output (sentinels included) is kept on `raw_text`.
 
     `text` is also settable: assigning to it rewrites `raw_text` and
-    recomputes the cached stripped text, but a pre-existing `anchor_index`
-    is left unchanged and may then be stale relative to the new text.
+    recomputes the cached stripped text. Assigning `raw_text` directly
+    recomputes it too, so `text` stays in sync either way. A pre-existing
+    `anchor_index` is left unchanged in both cases and may then be stale
+    relative to the new text.
 
     Note: `dataclasses.asdict` keys on field names, so the rendered output
     appears under `raw_text` (there is no `text` key). `dataclasses.replace`
@@ -139,11 +141,25 @@ class RenderedPrompt:
         self.trace_events = trace_events if trace_events is not None else []
         self.anchor_index = anchor_index
         # Compute the sentinel-stripped text once; every helper reads this.
+        # Set after raw_text so the __setattr__ hook does not need to fire here.
         self._clean_text = (
             anchor_index.clean_text
             if anchor_index is not None
             else ANCHOR_PATTERN.sub("", resolved_text)
         )
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Keep `_clean_text` synchronized with `raw_text` writes.
+
+        `raw_text` is a public dataclass field, so callers may assign to it
+        directly; this hook recomputes the cached sentinel-stripped text so
+        `text` and every helper built on it never serve stale output. The
+        `_clean_text in __dict__` guard covers `__init__`, which writes
+        `raw_text` before `_clean_text` exists.
+        """
+        object.__setattr__(self, name, value)
+        if name == "raw_text" and "_clean_text" in self.__dict__:
+            object.__setattr__(self, "_clean_text", ANCHOR_PATTERN.sub("", value))
 
     @property
     def text(self) -> str:
@@ -158,12 +174,12 @@ class RenderedPrompt:
     def text(self, value: str) -> None:
         """Assign new rendered text.
 
-        Writes through to `raw_text` and recomputes the cached clean text.
-        `anchor_index`, if present, is left unchanged, so its anchor
-        positions and `clean_text` may be stale relative to the new text.
+        Writes through to `raw_text`; the `__setattr__` hook recomputes the
+        cached clean text. `anchor_index`, if present, is left unchanged, so
+        its anchor positions and `clean_text` may be stale relative to the
+        new text.
         """
         self.raw_text = value
-        self._clean_text = ANCHOR_PATTERN.sub("", value)
 
     @property
     def normalized(self) -> str:

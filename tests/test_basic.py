@@ -705,6 +705,24 @@ class TestSnapshotAssertion:
         # The snapshot file must not be silently created
         assert not (snapshot_dir / "test_output.txt").exists()
 
+    def test_snapshot_directory_at_path_fails(self, tmp_path) -> None:
+        """Test snapshot fails as missing when a directory occupies the path."""
+        spec = TemplateSpec.from_string("Hello World")
+        rendered = spec.render({})
+
+        # A directory occupying the snapshot file path counts as missing;
+        # IsADirectoryError is an OSError and would not be caught below.
+        snapshot_dir = tmp_path / "snapshots"
+        snapshot_dir.mkdir()
+        (snapshot_dir / "test_output.txt").mkdir()
+
+        with pytest.raises(PromptAssertionError) as exc_info:
+            PromptAsserts(rendered).snapshot("test_output", snapshot_dir=snapshot_dir)
+
+        message = str(exc_info.value)
+        assert "test_output" in message
+        assert "update=True" in message
+
     def test_snapshot_matches_existing(self, tmp_path) -> None:
         """Test snapshot passes when content matches."""
         spec = TemplateSpec.from_string("Hello World")

@@ -154,6 +154,22 @@ class TestSnapshotManagerDirect:
         # The snapshot file must not be silently created
         assert not (tmp_path / "missing_snap.txt").exists()
 
+    def test_snapshot_manager_directory_at_path_fails(self, tmp_path) -> None:
+        """Test that a directory at the snapshot path fails as missing."""
+        from jinjatest.pytest_plugin import SnapshotManager
+
+        # A directory occupying the snapshot file path counts as missing;
+        # IsADirectoryError is an OSError and would not be caught below.
+        (tmp_path / "dir_snap.txt").mkdir()
+
+        manager = SnapshotManager(tmp_path, update=False)
+        with pytest.raises(AssertionError) as exc_info:
+            manager.compare_or_update("dir_snap", "Content")
+
+        message = str(exc_info.value)
+        assert "dir_snap" in message
+        assert "--update-snapshots" in message
+
     def test_snapshot_manager_update_existing(self, tmp_path) -> None:
         """Test updating existing snapshot."""
         from jinjatest.pytest_plugin import SnapshotManager

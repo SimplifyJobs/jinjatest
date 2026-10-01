@@ -1,12 +1,23 @@
 """Tests for coverage of child templates loaded via include/import/from/extends."""
 
+from collections.abc import MutableMapping
 from pathlib import Path
+from typing import Any
+
+from jinja2 import (
+    BaseLoader,
+    Environment,
+    FileSystemLoader,
+    Template,
+    TemplateNotFound,
+)
 
 from jinjatest import TemplateSpec
 from jinjatest.coverage.collector import (
     get_coverage_collector,
     reset_coverage_collector,
 )
+from jinjatest.coverage.loader import CoverageLoader
 
 
 class TestIncludedTemplateCoverage:
@@ -237,3 +248,112 @@ class TestExtendedTemplateCoverage:
         # The non-overridden footer block runs the parent's instrumented code.
         assert base_tracker.get_hit_count("if_2_true") == 1
         assert base_tracker.get_hit_count("block_footer") == 1
+
+
+class PrecompiledLoader(BaseLoader):
+    """Serves 'precompiled' templates without source access.
+
+    Mimics jinja2.ModuleLoader: ``has_source_access`` is False and
+    ``load`` is overridden so ``get_source`` (which would raise) is never
+    consulted.
+    """
+
+    has_source_access = False
+
+    def __init__(self, sources: dict[str, str]) -> None:
+        self._sources = sources
+
+    def load(
+        self,
+        environment: Environment,
+        name: str,
+        globals: MutableMapping[str, Any] | None = None,
+    ) -> Template:
+        """Return a compiled template, bypassing get_source entirely."""
+        if name not in self._sources:
+            raise TemplateNotFound(name)
+        if globals is None:
+            globals = {}
+        code = environment.compile(self._sources[name], name)
+        return environment.template_class.from_code(environment, code, globals)
+
+
+class TestLoaderWithoutSourceAccess:
+    """Loaders without source access must not be wrapped."""
+
+    def setup_method(self) -> None:
+        """Reset coverage collector before each test."""
+        reset_coverage_collector()
+
+    def teardown_method(self) -> None:
+        """Clean up after each test."""
+        reset_coverage_collector()
+
+    def test_loader_without_source_access_is_not_wrapped(self) -> None:
+        """Test that a precompiled-template loader is left unwrapped.
+
+        Wrapping it would route child lookups through
+        CoverageLoader.get_source, which such loaders do not support.
+        Children keep rendering, just without coverage instrumentation.
+        """
+        collector = get_coverage_collector()
+        collector.enable()
+
+        loader = PrecompiledLoader({"child.j2": "precompiled child"})
+        env = Environment(loader=loader)
+
+        spec = TemplateSpec.from_string('{% include "child.j2" %}', env=env)
+        rendered = spec.render({})
+
+        # Render still works through the unwrapped loader.
+        assert "precompiled child" in rendered.text
+        assert env.loader is loader
+        assert not isinstance(env.loader, CoverageLoader)
+        assert collector.get_tracker("child.j2") is None
+
+
+class TestStaleCacheCleared:
+    """Re-spec'ing a reused env must clear cached compiled children."""
+
+    def setup_method(self) -> None:
+        """Reset coverage collector before each test."""
+        reset_coverage_collector()
+
+    def teardown_method(self) -> None:
+        """Clean up after each test."""
+        reset_coverage_collector()
+
+    def test_child_retracked_after_collector_reset(self, tmp_path: Path) -> None:
+        """Test that a child re-registers after the collector is reset.
+
+        The reused env's cache holds the child compiled under the old run;
+        without a cache clear, the second render would serve it from cache
+        and the child would never re-register with the collector.
+        """
+        collector = get_coverage_collector()
+        collector.enable()
+
+        (tmp_path / "main.j2").write_text('{% include "child.j2" %}')
+        (tmp_path / "child.j2").write_text("{% if flag %}yes{% else %}no{% endif %}")
+
+        env = Environment(loader=FileSystemLoader(str(tmp_path)))
+
+        spec = TemplateSpec.from_file("main.j2", env=env)
+        rendered = spec.render({"flag": True})
+
+        assert "yes" in rendered.text
+        assert collector.get_tracker("child.j2") is not None
+
+        # Simulate a new coverage run on the same env: trackers are wiped
+        # but the loader stays wrapped, so a stale cache would serve the
+        # child compiled under the previous run without re-registering it.
+        collector.reset()
+
+        spec = TemplateSpec.from_file("main.j2", env=env)
+        rendered = spec.render({"flag": False})
+
+        assert "no" in rendered.text
+
+        child_tracker = collector.get_tracker("child.j2")
+        assert child_tracker is not None
+        assert child_tracker.get_hit_count("if_1_false") == 1

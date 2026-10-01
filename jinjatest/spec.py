@@ -69,7 +69,14 @@ def _wrap_loader_for_coverage(env: Environment) -> None:
     Templates pulled in during render ({% include %}, {% import %},
     {% from %}, {% extends %}) are resolved through env.loader; wrapping it
     lets the collector register and instrument them on load. No-op when the
-    env has no loader or the loader is already wrapped.
+    env has no loader. Loaders without source access (e.g.
+    jinja2.ModuleLoader, which serves precompiled templates and does not
+    implement get_source) are left unwrapped — their children simply don't
+    get coverage instrumentation but keep rendering.
+
+    In all wrapped cases the environment's template cache is cleared: a
+    reused env may hold children compiled under a previous collector run,
+    which would otherwise be served from cache and never re-register.
 
     Args:
         env: The Jinja environment whose loader should be wrapped.
@@ -80,7 +87,14 @@ def _wrap_loader_for_coverage(env: Environment) -> None:
     from jinjatest.coverage.loader import CoverageLoader
 
     if not isinstance(env.loader, CoverageLoader):
+        if not env.loader.has_source_access:
+            return
         env.loader = CoverageLoader(env.loader)
+
+    # Compiled children are cached under a key derived from the loader.
+    # Drop them so each coverage run re-loads (and re-registers) them.
+    if env.cache is not None:
+        env.cache.clear()
 
 
 def _raw_loader(env: Environment) -> BaseLoader | None:

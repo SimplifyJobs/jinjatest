@@ -90,7 +90,16 @@ class RenderedPrompt:
 
     The `text` property is always the output a production render would
     produce: anchor sentinels emitted by test instrumentation are stripped.
-    The untouched render output (sentinels included) is kept on `raw_text`.
+    The stripped text is computed once at construction and cached. The
+    untouched render output (sentinels included) is kept on `raw_text`.
+
+    `text` is also settable: assigning to it rewrites `raw_text` and
+    recomputes the cached stripped text, but a pre-existing `anchor_index`
+    is left unchanged and may then be stale relative to the new text.
+
+    Note: `dataclasses.asdict` keys on field names, so the rendered output
+    appears under `raw_text` (there is no `text` key). `dataclasses.replace`
+    works and accepts both `text` and `raw_text` overrides.
 
     Attributes:
         raw_text: The rendered template output exactly as produced by Jinja,
@@ -105,9 +114,11 @@ class RenderedPrompt:
 
     def __init__(
         self,
-        text: str,
+        text: str | None = None,
         trace_events: list[str] | None = None,
         anchor_index: AnchorIndex | None = None,
+        *,
+        raw_text: str | None = None,
     ) -> None:
         """Initialize a RenderedPrompt.
 
@@ -117,10 +128,22 @@ class RenderedPrompt:
                 `raw_text` preserves it verbatim.
             trace_events: Trace events recorded during rendering.
             anchor_index: Index of anchor positions in the clean text.
+            raw_text: Keyword-only alias for `text`, accepted so that
+                `dataclasses.replace` (which passes field names back to
+                `__init__`) keeps working. If both are given, `text` wins.
         """
-        self.raw_text = text
+        resolved_text = text if text is not None else raw_text
+        if resolved_text is None:
+            raise TypeError("RenderedPrompt() missing required argument: 'text'")
+        self.raw_text = resolved_text
         self.trace_events = trace_events if trace_events is not None else []
         self.anchor_index = anchor_index
+        # Compute the sentinel-stripped text once; every helper reads this.
+        self._clean_text = (
+            anchor_index.clean_text
+            if anchor_index is not None
+            else ANCHOR_PATTERN.sub("", resolved_text)
+        )
 
     @property
     def text(self) -> str:
@@ -129,9 +152,18 @@ class RenderedPrompt:
         This matches what the template renders in production. Use `raw_text`
         for the original output including sentinel markers.
         """
-        if self.anchor_index is not None:
-            return self.anchor_index.clean_text
-        return ANCHOR_PATTERN.sub("", self.raw_text)
+        return self._clean_text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        """Assign new rendered text.
+
+        Writes through to `raw_text` and recomputes the cached clean text.
+        `anchor_index`, if present, is left unchanged, so its anchor
+        positions and `clean_text` may be stale relative to the new text.
+        """
+        self.raw_text = value
+        self._clean_text = ANCHOR_PATTERN.sub("", value)
 
     @property
     def normalized(self) -> str:

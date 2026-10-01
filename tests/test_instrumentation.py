@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from jinjatest import PromptAsserts, TemplateSpec
+from jinjatest import PromptAsserts, RenderedPrompt, TemplateSpec
 
 
 class AnchoredContext(BaseModel):
@@ -359,6 +359,34 @@ class TestRenderedTextAnchorSentinels:
 
         assert rendered.text == "AB\nhi"
         assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+
+    def test_text_strips_sentinels_without_anchor_index(self) -> None:
+        """Direct construction (anchor_index=None) still strips sentinels."""
+        rendered = RenderedPrompt(text="A\x1eANCHOR:sec\x1eB\nhi")
+
+        assert rendered.text == "AB\nhi"
+        assert rendered.clean_text == "AB\nhi"
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+
+    def test_text_assignment_updates_raw_and_clean_text(self) -> None:
+        """Assigning .text writes raw_text and refreshes the clean text."""
+        rendered = RenderedPrompt(text="before")
+
+        rendered.text = "A\x1eANCHOR:sec\x1eB\nhi"
+
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+        assert rendered.text == "AB\nhi"
+
+    def test_dataclasses_replace_text(self) -> None:
+        """dataclasses.replace(rendered, text=...) keeps working."""
+        import dataclasses
+
+        rendered = RenderedPrompt(text="A\x1eANCHOR:sec\x1eB")
+        replaced = dataclasses.replace(rendered, text="new text")
+
+        assert replaced.raw_text == "new text"
+        assert replaced.text == "new text"
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB"
 
 
 class TestInstrumentationDisabled:

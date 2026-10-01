@@ -11,6 +11,12 @@ class TestMainPackageExports:
         assert hasattr(jinjatest, "__version__")
         assert isinstance(jinjatest.__version__, str)
 
+    def test_version_matches_package_metadata(self):
+        """__version__ must stay in sync with the release in pyproject.toml."""
+        import importlib.metadata
+
+        assert jinjatest.__version__ == importlib.metadata.version("jinjatest")
+
     def test_all_exports_in_namespace(self):
         """All items in __all__ should be accessible."""
         for name in jinjatest.__all__:

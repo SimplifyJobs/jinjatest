@@ -55,7 +55,13 @@ def _load_pyproject_config() -> CoverageConfig:
             data.get("tool", {}).get("jinjatest", {}).get("coverage", {})
         )
         return CoverageConfig.model_validate(raw_config)
-    except (ValidationError, Exception):
+    except (
+        OSError,
+        ValidationError,
+        tomllib.TOMLDecodeError,
+        AttributeError,
+        TypeError,
+    ):
         return CoverageConfig()
 
 

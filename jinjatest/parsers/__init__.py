@@ -21,22 +21,22 @@ from jinjatest.parsers.markdown import MarkdownSection, parse_markdown_sections
 from jinjatest.parsers.xml_parser import XMLElement, XMLParseError, parse_xml
 
 __all__ = [
-    "parse_json",
+    "FencedBlock",
     "JSONParseError",
-    "parse_xml",
-    "XMLParseError",
-    "XMLElement",
-    "parse_markdown_sections",
     "MarkdownSection",
+    "XMLElement",
+    "XMLParseError",
     "extract_fenced_blocks",
     "parse_fenced_blocks",
-    "FencedBlock",
+    "parse_json",
+    "parse_markdown_sections",
+    "parse_xml",
 ]
 
 # Optional YAML support
 try:
     from jinjatest.parsers.yaml_parser import YAMLParseError, parse_yaml  # noqa: F401
 
-    __all__.extend(["parse_yaml", "YAMLParseError"])
+    __all__.extend(["YAMLParseError", "parse_yaml"])
 except ImportError:
     pass

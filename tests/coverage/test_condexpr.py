@@ -136,7 +136,7 @@ class TestCondExprTransformer:
         result = transformer.visit(ast)
 
         # Find the Output node's child - should still be a CondExpr
-        list(result.find_all(nodes.Output))[0]
+        next(iter(result.find_all(nodes.Output)))
         # The first node in output should be a CondExpr (wrapped branches)
         assert len(list(result.find_all(nodes.CondExpr))) == 1
 

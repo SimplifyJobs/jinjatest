@@ -7,8 +7,9 @@ Provides a type-safe, test-friendly interface for working with Jinja templates.
 from __future__ import annotations
 
 import functools
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
 
 from jinja2 import (
     BaseLoader,
@@ -490,7 +491,7 @@ class TemplateSpec(Generic[TContext]):
                         original_source = src
                         instrumented_src = collector.register_template(cov_path, src)
                         template = env.from_string(instrumented_src)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - instrumentation must never break loading
                         # Fall back to regular loading
                         template = env.get_template(template_name)
                 else:

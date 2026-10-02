@@ -19,8 +19,6 @@ if TYPE_CHECKING:
 class PromptAssertionError(AssertionError):
     """Raised when a prompt assertion fails."""
 
-    pass
-
 
 def _diff_strings(expected: str, actual: str, context_lines: int = 3) -> str:
     """Generate a unified diff between two strings."""
@@ -311,7 +309,7 @@ class PromptAsserts:
         if not self._rendered.has_trace(event):
             events = ", ".join(repr(e) for e in self._rendered.trace_events) or "(none)"
             raise PromptAssertionError(
-                f"Expected trace event: {repr(event)}\nRecorded events: {events}"
+                f"Expected trace event: {event!r}\nRecorded events: {events}"
             )
         return self
 
@@ -330,7 +328,7 @@ class PromptAsserts:
         if self._rendered.has_trace(event):
             count = self._rendered.trace_count(event)
             raise PromptAssertionError(
-                f"Expected trace event NOT to be recorded: {repr(event)}\n"
+                f"Expected trace event NOT to be recorded: {event!r}\n"
                 f"But it was recorded {count} time(s)"
             )
         return self

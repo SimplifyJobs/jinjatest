@@ -7,8 +7,9 @@ Extracts and parses content from markdown-style fenced code blocks
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
@@ -58,9 +59,8 @@ def extract_fenced_blocks(text: str, language: str | None = None) -> list[Fenced
         end_line = start_line + content.count("\n") + 2  # +2 for ``` lines
 
         # Filter by language if specified
-        if language is not None:
-            if block_lang != language.lower():
-                continue
+        if language is not None and block_lang != language.lower():
+            continue
 
         blocks.append(
             FencedBlock(

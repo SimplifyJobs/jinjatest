@@ -63,6 +63,54 @@ def _get_coverage_collector() -> CoverageCollector | None:
     return None
 
 
+def _wrap_loader_for_coverage(env: Environment) -> None:
+    """Wrap env's loader so child templates are coverage-instrumented.
+
+    Templates pulled in during render ({% include %}, {% import %},
+    {% from %}, {% extends %}) are resolved through env.loader; wrapping it
+    lets the collector register and instrument them on load. No-op when the
+    env has no loader. Loaders without source access (e.g.
+    jinja2.ModuleLoader, which serves precompiled templates and does not
+    implement get_source) are left unwrapped — their children simply don't
+    get coverage instrumentation but keep rendering.
+
+    In all wrapped cases the environment's template cache is cleared: a
+    reused env may hold children compiled under a previous collector run,
+    which would otherwise be served from cache and never re-register.
+
+    Args:
+        env: The Jinja environment whose loader should be wrapped.
+    """
+    if env.loader is None:
+        return
+
+    from jinjatest.coverage.loader import CoverageLoader
+
+    if not isinstance(env.loader, CoverageLoader):
+        if not env.loader.has_source_access:
+            return
+        env.loader = CoverageLoader(env.loader)
+
+    # Compiled children are cached under a key derived from the loader.
+    # Drop them so each coverage run re-loads (and re-registers) them.
+    if env.cache is not None:
+        env.cache.clear()
+
+
+def _raw_loader(env: Environment) -> BaseLoader | None:
+    """Get env's loader, unwrapping a coverage loader if present.
+
+    Args:
+        env: The Jinja environment.
+
+    Returns:
+        The loader that returns unmodified (uninstrumented) sources.
+    """
+    from jinjatest.coverage.loader import unwrap_loader
+
+    return unwrap_loader(env.loader)
+
+
 class TemplateRenderError(Exception):
     """Raised when template rendering fails."""
 
@@ -294,6 +342,12 @@ class TemplateSpec(Generic[TContext]):
             cov_path = template_path
 
         template = env.from_string(source)
+
+        # Wrap the loader so child templates ({% include %}, {% import %},
+        # {% from %}, {% extends %}) are registered and instrumented too.
+        if collector and test_mode:
+            _wrap_loader_for_coverage(env)
+
         return cls(
             template,
             env=env,
@@ -398,12 +452,14 @@ class TemplateSpec(Generic[TContext]):
         original_source: str | None = None
         if use_comment_markers and test_mode:
             if env_was_provided:
-                # Read from loader (for provided env)
-                if env.loader is None:
+                # Read from loader (for provided env); unwrap a coverage
+                # loader so the root template is registered from raw source.
+                raw_loader = _raw_loader(env)
+                if raw_loader is None:
                     raise TemplateRenderError(
                         "Cannot use comment markers with provided env that has no loader"
                     )
-                original_source, _, _ = env.loader.get_source(env, template_name)
+                original_source, _, _ = raw_loader.get_source(env, template_name)
             else:
                 # Read from file system (for newly created env)
                 assert template_dir is not None
@@ -426,9 +482,10 @@ class TemplateSpec(Generic[TContext]):
             # Check for coverage without marker transformation
             if collector and test_mode:
                 # Need to read source for instrumentation
-                if env.loader is not None:
+                raw_loader = _raw_loader(env)
+                if raw_loader is not None:
                     try:
-                        src, _, _ = env.loader.get_source(env, template_name)
+                        src, _, _ = raw_loader.get_source(env, template_name)
                         original_source = src
                         instrumented_src = collector.register_template(cov_path, src)
                         template = env.from_string(instrumented_src)
@@ -439,6 +496,11 @@ class TemplateSpec(Generic[TContext]):
                     template = env.get_template(template_name)
             else:
                 template = env.get_template(template_name)
+
+        # Wrap the loader so child templates ({% include %}, {% import %},
+        # {% from %}, {% extends %}) are registered and instrumented too.
+        if collector and test_mode:
+            _wrap_loader_for_coverage(env)
 
         return cls(
             template,

@@ -44,7 +44,34 @@ class CoverageEnvironment(Environment):
         from jinjatest.coverage.transformer import CondExprTransformer
 
         if list(source.find_all(n.CondExpr)):
-            transformer = CondExprTransformer()
+            transformer = CondExprTransformer(event_prefix=_event_prefix(name))
             source = transformer.visit(source)
 
         return super()._generate(source, name, filename, defer_init)
+
+
+def _event_prefix(name: str | None) -> str:
+    """Get the trace event prefix for a compiled template.
+
+    Templates compiled under a loader name (i.e., loaded through a loader
+    rather than from a string) emit namespaced events so their branch hits
+    can be routed to the tracker registered under that name. Templates
+    compiled without a name (the TemplateSpec root) emit bare ids.
+
+    Args:
+        name: The template name passed to compilation, or None.
+
+    Returns:
+        "<name>::" when coverage is enabled and name is set, else "".
+    """
+    if name is None:
+        return ""
+    try:
+        from jinjatest.coverage.collector import get_coverage_collector
+
+        if get_coverage_collector().enabled:
+            return f"{name}::"
+    except ImportError:
+        # Coverage module is optional
+        pass
+    return ""

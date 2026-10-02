@@ -120,12 +120,17 @@ class CoverageCollector:
         self,
         path: str,
         source: str,
+        event_prefix: str = "",
     ) -> str:
         """Register a template for coverage tracking.
 
         Args:
             path: The template path (used as identifier).
             source: The template source code.
+            event_prefix: Optional prefix prepended to every emitted trace
+                event id (e.g., "child.j2::"). Used for templates loaded via
+                the coverage loader so their hits can be routed back to this
+                tracker when a render of another template records them.
 
         Returns:
             The instrumented source code.
@@ -138,7 +143,7 @@ class CoverageCollector:
 
         with self._lock:
             if path not in self._trackers:
-                tracker = TemplateCoverage(source, path)
+                tracker = TemplateCoverage(source, path, event_prefix)
                 self._trackers[path] = tracker
 
             return self._trackers[path].instrumented_source
@@ -150,16 +155,33 @@ class CoverageCollector:
     ) -> None:
         """Record coverage data from a template render.
 
+        Trace events namespaced as "<template>::<branch_id>" (emitted by
+        templates instrumented through the coverage loader) are routed to
+        the tracker registered under "<template>" with the prefix stripped.
+        Bare events are attributed to the tracker for `path`.
+
         Args:
-            path: The template path.
+            path: The template path of the rendered (root) template.
             trace_events: List of trace events from the render.
         """
         if not self._enabled:
             return
 
         with self._lock:
+            routed: dict[str, list[str]] = {}
+            own_events: list[str] = []
+            for event in trace_events:
+                prefix, sep, branch_id = event.partition("::")
+                if sep and prefix in self._trackers:
+                    routed.setdefault(prefix, []).append(branch_id)
+                else:
+                    own_events.append(event)
+
             if path in self._trackers:
-                self._trackers[path].record_hits(trace_events)
+                self._trackers[path].record_hits(own_events)
+
+            for tracker_path, events in routed.items():
+                self._trackers[tracker_path].record_hits(events)
 
     def get_tracker(self, path: str) -> TemplateCoverage | None:
         """Get the tracker for a specific template.

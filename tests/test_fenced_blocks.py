@@ -8,7 +8,7 @@ from jinjatest.parsers.fenced_blocks import (
     extract_fenced_blocks,
     parse_fenced_blocks,
 )
-from jinjatest.parsers.json_parser import parse_json
+from jinjatest.parsers.json_parser import JSONParseError, parse_json
 
 
 class TestExtractFencedBlocks:
@@ -147,7 +147,7 @@ class TestParseFencedBlocks:
 {invalid json}
 ```
 """
-        with pytest.raises(Exception):  # JSONParseError
+        with pytest.raises(JSONParseError):
             parse_fenced_blocks(text, "json", parse_json)
 
 

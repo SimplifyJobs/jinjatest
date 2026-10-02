@@ -248,9 +248,12 @@ class AutoInstrumenter:
         """
         candidates: list[tuple[int, str]] = []
         for branch in discovery.branches:
-            if branch.branch_type in ("if_false", "elif_false", "for_else"):
-                if branch.has_else and branch.line <= else_line:
-                    candidates.append((branch.line, branch.branch_id))
+            if (
+                branch.branch_type in ("if_false", "elif_false", "for_else")
+                and branch.has_else
+                and branch.line <= else_line
+            ):
+                candidates.append((branch.line, branch.branch_id))
 
         if not candidates:
             return None
@@ -348,11 +351,11 @@ class AutoInstrumenter:
         """
         implicit_branches: dict[int, str] = {}
         for branch in discovery.branches:
-            if not branch.has_else:
-                if branch.branch_type.endswith("_false"):
-                    implicit_branches[branch.line] = branch.branch_id
-                elif branch.branch_type == "for_else":
-                    implicit_branches[branch.line] = branch.branch_id
+            if not branch.has_else and (
+                branch.branch_type.endswith("_false")
+                or branch.branch_type == "for_else"
+            ):
+                implicit_branches[branch.line] = branch.branch_id
 
         if not implicit_branches:
             return source, 0
@@ -388,16 +391,15 @@ class AutoInstrumenter:
                             f'{{{{ jt.trace("{self._event_prefix}{branch_id}") }}}}'
                         )
                         insertions.append((tag_start, insert_text))
-            elif keyword == "endfor":
-                if stack and stack[-1][0] == "for":
-                    _, start_line, _, has_else = stack.pop()
-                    if not has_else and start_line in implicit_branches:
-                        branch_id = implicit_branches[start_line]
-                        insert_text = (
-                            f"{{% else %}}"
-                            f'{{{{ jt.trace("{self._event_prefix}{branch_id}") }}}}'
-                        )
-                        insertions.append((tag_start, insert_text))
+            elif keyword == "endfor" and stack and stack[-1][0] == "for":
+                _, start_line, _, has_else = stack.pop()
+                if not has_else and start_line in implicit_branches:
+                    branch_id = implicit_branches[start_line]
+                    insert_text = (
+                        f"{{% else %}}"
+                        f'{{{{ jt.trace("{self._event_prefix}{branch_id}") }}}}'
+                    )
+                    insertions.append((tag_start, insert_text))
 
         insertions.sort(key=lambda x: x[0], reverse=True)
         for pos, text in insertions:

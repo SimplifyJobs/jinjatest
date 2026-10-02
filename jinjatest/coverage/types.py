@@ -39,10 +39,11 @@ def _normalize_and_validate_report_type(value: Any) -> ReportType:
         The normalized report type.
 
     Raises:
+        TypeError: If the value is not a string.
         ValueError: If the value is not a valid report type.
     """
     if not isinstance(value, str):
-        raise ValueError(f"Report type must be a string, got {type(value).__name__}")
+        raise TypeError(f"Report type must be a string, got {type(value).__name__}")
     normalized = value.lower()
     if normalized not in _VALID_REPORT_TYPES:
         valid_list = ", ".join(sorted(_VALID_REPORT_TYPES))
@@ -62,10 +63,11 @@ def _normalize_report_type_list(value: Any) -> list[ReportType]:
         List of normalized report types.
 
     Raises:
+        TypeError: If the value is not a list.
         ValueError: If any value is not a valid report type.
     """
     if not isinstance(value, list):
-        raise ValueError(f"Report types must be a list, got {type(value).__name__}")
+        raise TypeError(f"Report types must be a list, got {type(value).__name__}")
     return [_normalize_and_validate_report_type(v) for v in value]
 
 

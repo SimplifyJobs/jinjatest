@@ -1,6 +1,8 @@
 """Hatch build hook to generate _templates.py before building."""
 
-from hatchling.builders.hooks.plugin.interface import BuildHookInterface  # type: ignore[unresolved-import]  # ty: ignore[unresolved-import]
+from hatchling.builders.hooks.plugin.interface import (  # type: ignore[unresolved-import]  # ty: ignore[unresolved-import]
+    BuildHookInterface,
+)
 
 
 class TemplateBuildHook(BuildHookInterface):

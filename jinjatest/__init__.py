@@ -59,7 +59,7 @@ from jinjatest.spec import (
 
 __version__ = "0.3.1"
 
-__all__ = [
+__all__ = [  # noqa: RUF022 - grouped by category for readability
     # Version
     "__version__",
     # Core classes
@@ -104,6 +104,6 @@ __all__ = [
 try:
     from jinjatest.parsers import YAMLParseError, parse_yaml  # noqa: F401
 
-    __all__.extend(["parse_yaml", "YAMLParseError"])
+    __all__.extend(["YAMLParseError", "parse_yaml"])
 except ImportError:
     pass

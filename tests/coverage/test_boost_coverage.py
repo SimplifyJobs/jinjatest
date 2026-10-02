@@ -321,12 +321,14 @@ class TestPytestCovPlugin:
         """Test config loading when tomllib is not available."""
         from jinjatest.coverage import pytest_cov
 
-        with mock.patch.dict("sys.modules", {"tomllib": None, "tomli": None}):
+        with (
+            mock.patch.dict("sys.modules", {"tomllib": None, "tomli": None}),
             # Force reimport to test the import error path
-            with mock.patch.object(pytest_cov, "_load_pyproject_config") as mock_load:
-                mock_load.return_value = CoverageConfig()
-                result = mock_load()
-                assert result == CoverageConfig()
+            mock.patch.object(pytest_cov, "_load_pyproject_config") as mock_load,
+        ):
+            mock_load.return_value = CoverageConfig()
+            result = mock_load()
+            assert result == CoverageConfig()
 
     def test_load_pyproject_config_no_file(self) -> None:
         """Test config loading when pyproject.toml doesn't exist."""
@@ -340,12 +342,12 @@ class TestPytestCovPlugin:
         """Test config loading handles parse errors."""
         from jinjatest.coverage.pytest_cov import _load_pyproject_config
 
-        with mock.patch("pathlib.Path.exists", return_value=True):
-            with mock.patch(
-                "builtins.open", mock.mock_open(read_data=b"invalid toml [")
-            ):
-                result = _load_pyproject_config()
-                assert result == CoverageConfig()
+        with (
+            mock.patch("pathlib.Path.exists", return_value=True),
+            mock.patch("builtins.open", mock.mock_open(read_data=b"invalid toml [")),
+        ):
+            result = _load_pyproject_config()
+            assert result == CoverageConfig()
 
     def test_pytest_configure_enables_collector(self) -> None:
         """Test pytest_configure enables collector when --jt-cov is set."""

@@ -251,7 +251,6 @@ def set_coverage_collector(collector: CoverageCollector | None) -> None:
 
 def reset_coverage_collector() -> None:
     """Reset the global coverage collector to a fresh state."""
-    global _collector
     with _collector_lock:
         if _collector is not None:
             _collector.reset()

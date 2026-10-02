@@ -174,7 +174,6 @@ class ProductionInstrumentation:
 
     def clear(self) -> None:
         """No-op in production mode."""
-        pass
 
 
 def create_instrumentation(

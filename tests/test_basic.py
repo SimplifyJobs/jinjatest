@@ -984,8 +984,8 @@ class TestInstrumentationDirect:
     def test_create_test_instrumentation(self) -> None:
         """Test creating test instrumentation."""
         from jinjatest.instrumentation import (
-            create_instrumentation,
             TestInstrumentation,
+            create_instrumentation,
         )
 
         instr = create_instrumentation(test_mode=True)
@@ -994,8 +994,8 @@ class TestInstrumentationDirect:
     def test_create_production_instrumentation(self) -> None:
         """Test creating production instrumentation."""
         from jinjatest.instrumentation import (
-            create_instrumentation,
             ProductionInstrumentation,
+            create_instrumentation,
         )
 
         instr = create_instrumentation(test_mode=False)
@@ -1768,8 +1768,8 @@ class TestCreateInstrumentationDirect:
     def test_create_test_instrumentation(self) -> None:
         """Test creating test instrumentation."""
         from jinjatest.instrumentation import (
-            create_instrumentation,
             TestInstrumentation,
+            create_instrumentation,
         )
 
         instr = create_instrumentation(test_mode=True)
@@ -1778,8 +1778,8 @@ class TestCreateInstrumentationDirect:
     def test_create_production_instrumentation(self) -> None:
         """Test creating production instrumentation."""
         from jinjatest.instrumentation import (
-            create_instrumentation,
             ProductionInstrumentation,
+            create_instrumentation,
         )
 
         instr = create_instrumentation(test_mode=False)
@@ -1914,7 +1914,7 @@ class TestAnchorIndexFromTextWithAnchors:
 
     def test_from_text_single_anchor(self) -> None:
         """Test parsing text with a single anchor."""
-        from jinjatest.instrumentation import AnchorIndex, ANCHOR_START, ANCHOR_END
+        from jinjatest.instrumentation import ANCHOR_END, ANCHOR_START, AnchorIndex
 
         text = f"Before{ANCHOR_START}ANCHOR:test{ANCHOR_END}After"
         index = AnchorIndex.from_text(text)
@@ -1924,7 +1924,7 @@ class TestAnchorIndexFromTextWithAnchors:
 
     def test_from_text_multiple_anchors(self) -> None:
         """Test parsing text with multiple anchors."""
-        from jinjatest.instrumentation import AnchorIndex, ANCHOR_START, ANCHOR_END
+        from jinjatest.instrumentation import ANCHOR_END, ANCHOR_START, AnchorIndex
 
         text = f"{ANCHOR_START}ANCHOR:first{ANCHOR_END}Content1{ANCHOR_START}ANCHOR:second{ANCHOR_END}Content2"
         index = AnchorIndex.from_text(text)
@@ -1935,7 +1935,7 @@ class TestAnchorIndexFromTextWithAnchors:
 
     def test_from_text_anchor_sections(self) -> None:
         """Test that anchor sections have correct content."""
-        from jinjatest.instrumentation import AnchorIndex, ANCHOR_START, ANCHOR_END
+        from jinjatest.instrumentation import ANCHOR_END, ANCHOR_START, AnchorIndex
 
         text = f"{ANCHOR_START}ANCHOR:header{ANCHOR_END}Header content\n{ANCHOR_START}ANCHOR:body{ANCHOR_END}Body content"
         index = AnchorIndex.from_text(text)
@@ -1967,6 +1967,7 @@ class TestFromFileWithProvidedEnv:
     def test_from_file_with_env_preserves_path(self, template_dir: Path) -> None:
         """When env is provided, full path should be preserved."""
         from jinja2 import Environment, FileSystemLoader
+
         from jinjatest import TemplateSpec
         from jinjatest.instrumentation import create_instrumentation
 
@@ -1985,6 +1986,7 @@ class TestFromFileWithProvidedEnv:
     ) -> None:
         """When env is already instrumented, should reuse instrumentation."""
         from jinja2 import Environment, FileSystemLoader
+
         from jinjatest import TemplateSpec
         from jinjatest.instrumentation import create_instrumentation
 
@@ -2010,6 +2012,7 @@ class TestFromFileWithProvidedEnv:
     def test_from_file_with_env_instruments_if_needed(self, template_dir: Path) -> None:
         """When env is provided but not instrumented, should add instrumentation."""
         from jinja2 import Environment, FileSystemLoader
+
         from jinjatest import TemplateSpec
 
         env = Environment(loader=FileSystemLoader(str(template_dir)))
@@ -2052,6 +2055,7 @@ class TestFromFileWithTemplateDir:
     ) -> None:
         """template_dir should be ignored when env is provided."""
         from jinja2 import Environment, FileSystemLoader
+
         from jinjatest import TemplateSpec
         from jinjatest.instrumentation import create_instrumentation
 
@@ -2089,6 +2093,7 @@ class TestFromFileWithCommentMarkersAndProvidedEnv:
     def test_from_file_with_env_and_markers(self, template_with_markers: Path) -> None:
         """Test that comment markers work when env is provided."""
         from jinja2 import Environment, FileSystemLoader
+
         from jinjatest import TemplateSpec
         from jinjatest.instrumentation import create_instrumentation
 
@@ -2106,7 +2111,8 @@ class TestFromFileWithCommentMarkersAndProvidedEnv:
     def test_from_file_with_env_no_loader_raises(self) -> None:
         """Test that error is raised when env has no loader and markers are used."""
         from jinja2 import Environment
-        from jinjatest import TemplateSpec, TemplateRenderError
+
+        from jinjatest import TemplateRenderError, TemplateSpec
 
         env = Environment()  # No loader
 

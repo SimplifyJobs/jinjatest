@@ -38,7 +38,7 @@ class CoverageLoader(BaseLoader):
         self.has_source_access = wrapped.has_source_access
 
     def get_source(
-        self, environment: "Environment", template: str
+        self, environment: Environment, template: str
     ) -> tuple[str, str | None, t.Callable[[], bool] | None]:
         """Get the template source, instrumented when coverage is enabled.
 

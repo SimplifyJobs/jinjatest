@@ -6,13 +6,8 @@ nodes to track branch execution while preserving lazy evaluation semantics.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from jinja2 import nodes
 from jinja2.visitor import NodeTransformer
-
-if TYPE_CHECKING:
-    pass
 
 
 class CondExprTransformer(NodeTransformer):

@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-
 from jinjatest import TemplateSpec, create_environment
 from jinjatest.coverage.collector import (
     get_coverage_collector,
@@ -197,7 +196,7 @@ class TestSpecFromFileCoverage:
             def sometimes_failing_get_source(env, name):
                 call_count[0] += 1
                 if call_count[0] == 1:
-                    raise Exception("Simulated failure")
+                    raise RuntimeError("Simulated failure")
                 return original_get_source(env, name)
 
             with mock.patch.object(

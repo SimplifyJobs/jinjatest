@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from jinjatest.instrumentation import ANCHOR_PATTERN, AnchorIndex
 from jinjatest.parsers.fenced_blocks import parse_fenced_blocks
@@ -20,9 +20,6 @@ from jinjatest.parsers.markdown import (
     parse_markdown_sections,
 )
 from jinjatest.parsers.xml_parser import XMLElement, parse_xml
-
-if TYPE_CHECKING:
-    pass
 
 
 def normalize_text(

@@ -25,12 +25,15 @@ uv add jinjatest          # or: uv add jinjatest[yaml]
 from pydantic import BaseModel
 from jinjatest import TemplateSpec, PromptAsserts
 
+
 class Ctx(BaseModel):
     user_name: str
     plan: str  # "free" | "pro"
 
+
 # Load template with context validation
 spec = TemplateSpec.from_file("prompts/welcome.j2", context_model=Ctx)
+
 
 def test_welcome_pro_user():
     rendered = spec.render({"user_name": "Ada", "plan": "pro"})
@@ -74,7 +77,9 @@ Supports fragments with multiple root elements:
 
 ```python
 def test_xml_tool_calls():
-    rendered = spec.render({"query": "python tutorials", "include_filter": True, "criteria": "beginner"})
+    rendered = spec.render(
+        {"query": "python tutorials", "include_filter": True, "criteria": "beginner"}
+    )
     tools = rendered.as_xml()  # Returns list[XMLElement]
     assert tools[0].attrib["name"] == "search"
     assert tools[0].find("query").text == "python tutorials"
@@ -113,9 +118,12 @@ Context: {% for item in context_items %}- {{ item }}{% endfor %}
 
 ```python
 def test_sections():
-    rendered = spec.render({"user_name": "Ada", "request": "Help", "context_items": ["doc1"]})
+    rendered = spec.render(
+        {"user_name": "Ada", "request": "Help", "context_items": ["doc1"]}
+    )
     assert rendered.section("user").contains("Ada")
     assert rendered.section("system").not_contains("Ada")
+
 
 def test_branch_coverage():
     rendered = spec.render({"user_name": "Ada", "request": "Help", "context_items": []})
@@ -158,29 +166,29 @@ Options: `template_dir`, `strict_undefined=True`, `test_mode=True`, `use_comment
 
 **Parsing:**
 ```python
-rendered.as_json()                 # Parse as JSON (allow_comments=True for // comments)
-rendered.as_yaml()                 # Parse as YAML (requires pyyaml)
-rendered.as_xml(strict=False)      # Parse as XML (strict=True for single root)
-rendered.as_json_blocks()          # Extract ```json blocks
-rendered.as_yaml_blocks()          # Extract ```yaml blocks
-rendered.as_xml_blocks()           # Extract ```xml blocks
-rendered.as_markdown_sections()    # Parse markdown headings
+rendered.as_json()  # Parse as JSON (allow_comments=True for // comments)
+rendered.as_yaml()  # Parse as YAML (requires pyyaml)
+rendered.as_xml(strict=False)  # Parse as XML (strict=True for single root)
+rendered.as_json_blocks()  # Extract ```json blocks
+rendered.as_yaml_blocks()  # Extract ```yaml blocks
+rendered.as_xml_blocks()  # Extract ```xml blocks
+rendered.as_markdown_sections()  # Parse markdown headings
 ```
 
 **Sections & Traces:**
 ```python
-rendered.section("name")           # Get section by anchor
-rendered.has_section("name")       # Check section exists
-rendered.has_trace("event")        # Check trace was recorded
-rendered.trace_count("event")      # Count trace occurrences
+rendered.section("name")  # Get section by anchor
+rendered.has_section("name")  # Check section exists
+rendered.has_trace("event")  # Check trace was recorded
+rendered.trace_count("event")  # Count trace occurrences
 ```
 
 **Query helpers:**
 ```python
-rendered.contains("text")          # Check substring
-rendered.not_contains("text")      # Check absence
-rendered.matches(r"pattern")       # Regex match
-rendered.find_all(r"pattern")      # Find all matches
+rendered.contains("text")  # Check substring
+rendered.not_contains("text")  # Check absence
+rendered.matches(r"pattern")  # Regex match
+rendered.find_all(r"pattern")  # Find all matches
 ```
 
 ### PromptAsserts
@@ -213,6 +221,7 @@ spec = TemplateSpec.from_file("my_template.j2", env=env)
 def test_with_fixtures(template_from_string, jinja_env):
     spec = template_from_string("Hello {{ name }}!")
     assert spec.render({"name": "World"}).text == "Hello World!"
+
 
 def test_with_snapshots(snapshot_manager, template_from_string):
     rendered = template_from_string("Hello {{ name }}!").render({"name": "World"})

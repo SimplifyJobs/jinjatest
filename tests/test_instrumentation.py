@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from jinjatest import PromptAsserts, TemplateSpec
+from jinjatest import PromptAsserts, RenderedPrompt, TemplateSpec
 
 
 class AnchoredContext(BaseModel):
@@ -317,6 +317,97 @@ class TestTraceRecorderDirect:
 
         assert len(recorder.events) == 3
         assert recorder.events.count("event1") == 2
+
+
+class TestRenderedTextAnchorSentinels:
+    """RenderedPrompt.text must be the clean output a production render yields."""
+
+    def test_text_strips_anchor_sentinels(self) -> None:
+        """rendered.text must not leak \\x1eANCHOR:... sentinel markers."""
+        spec = TemplateSpec.from_string("A{#jt:anchor:sec#}B\n{{ x }}")
+        rendered = spec.render({"x": "hi"})
+
+        assert rendered.text == "AB\nhi"
+        assert "\x1e" not in rendered.text
+        assert "ANCHOR:" not in rendered.text
+        assert rendered.text == rendered.clean_text
+
+    def test_raw_text_preserves_anchor_sentinels(self) -> None:
+        """raw_text exposes the original output, sentinels included."""
+        spec = TemplateSpec.from_string("A{#jt:anchor:sec#}B\n{{ x }}")
+        rendered = spec.render({"x": "hi"})
+
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+
+    def test_query_helpers_and_asserts_agree_across_anchor(self) -> None:
+        """RenderedPrompt helpers and PromptAsserts see the same text."""
+        spec = TemplateSpec.from_string("A{#jt:anchor:sec#}B\n{{ x }}")
+        rendered = spec.render({"x": "hi"})
+
+        # "AB" spans the anchor's position; both APIs must agree on it.
+        assert rendered.contains("AB")
+        PromptAsserts(rendered).contains("AB")
+        PromptAsserts(rendered).equals(rendered.text)
+
+    def test_text_clean_for_template_file(self, tmp_path: Path) -> None:
+        """The same guarantee holds when rendering a template file."""
+        template_file = tmp_path / "anchored.j2"
+        template_file.write_text("A{#jt:anchor:sec#}B\n{{ x }}")
+
+        spec = TemplateSpec.from_file(template_file)
+        rendered = spec.render({"x": "hi"})
+
+        assert rendered.text == "AB\nhi"
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+
+    def test_text_strips_sentinels_without_anchor_index(self) -> None:
+        """Direct construction (anchor_index=None) still strips sentinels."""
+        rendered = RenderedPrompt(text="A\x1eANCHOR:sec\x1eB\nhi")
+
+        assert rendered.text == "AB\nhi"
+        assert rendered.clean_text == "AB\nhi"
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+
+    def test_text_assignment_updates_raw_and_clean_text(self) -> None:
+        """Assigning .text writes raw_text and refreshes the clean text."""
+        rendered = RenderedPrompt(text="before")
+
+        rendered.text = "A\x1eANCHOR:sec\x1eB\nhi"
+
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+        assert rendered.text == "AB\nhi"
+
+    def test_dataclasses_replace_text(self) -> None:
+        """dataclasses.replace(rendered, text=...) keeps working."""
+        import dataclasses
+
+        rendered = RenderedPrompt(text="A\x1eANCHOR:sec\x1eB")
+        replaced = dataclasses.replace(rendered, text="new text")
+
+        assert replaced.raw_text == "new text"
+        assert replaced.text == "new text"
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB"
+
+    def test_raw_text_assignment_updates_clean_text(self) -> None:
+        """Assigning .raw_text directly must refresh the cached clean text."""
+        rendered = RenderedPrompt(text="before")
+
+        rendered.raw_text = "A\x1eANCHOR:sec\x1eB\nhi"
+
+        assert rendered.raw_text == "A\x1eANCHOR:sec\x1eB\nhi"
+        assert rendered.text == "AB\nhi"
+        assert rendered.clean_text == "AB\nhi"
+        assert rendered.contains("AB")
+
+    def test_text_setter_after_raw_text_assignment(self) -> None:
+        """The .text setter path still works after a direct raw_text write."""
+        rendered = RenderedPrompt(text="before")
+
+        rendered.raw_text = "A\x1eANCHOR:sec\x1eB\nhi"
+        rendered.text = "C\x1eANCHOR:end\x1eD"
+
+        assert rendered.raw_text == "C\x1eANCHOR:end\x1eD"
+        assert rendered.text == "CD"
 
 
 class TestInstrumentationDisabled:

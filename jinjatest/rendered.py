@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from jinjatest.instrumentation import AnchorIndex
+from jinjatest.instrumentation import ANCHOR_PATTERN, AnchorIndex
 from jinjatest.parsers.fenced_blocks import parse_fenced_blocks
 from jinjatest.parsers.json_parser import parse_json
 from jinjatest.parsers.markdown import (
@@ -84,31 +84,111 @@ class RenderedPromptSection:
         return bool(re.search(pattern, self.text, flags))
 
 
-@dataclass
+@dataclass(init=False)
 class RenderedPrompt:
     """Holds rendered template output with query helpers.
 
+    The `text` property is always the output a production render would
+    produce: anchor sentinels emitted by test instrumentation are stripped.
+    The stripped text is cached on `_clean_text`. The untouched render
+    output (sentinels included) is kept on `raw_text`.
+
+    `text` is also settable: assigning to it rewrites `raw_text` and
+    recomputes the cached stripped text. Assigning `raw_text` directly
+    recomputes it too, so `text` stays in sync either way. A pre-existing
+    `anchor_index` is left unchanged in both cases and may then be stale
+    relative to the new text.
+
+    Note: `dataclasses.asdict` keys on field names, so the rendered output
+    appears under `raw_text` (there is no `text` key). `dataclasses.replace`
+    works and accepts both `text` and `raw_text` overrides.
+
     Attributes:
-        text: The raw rendered text.
+        raw_text: The rendered template output exactly as produced by Jinja,
+            including any anchor sentinel markers.
         trace_events: List of trace events recorded during rendering (if instrumentation enabled).
-        anchor_index: Index of anchor positions (if instrumentation enabled).
+        anchor_index: Index of anchor positions in the clean text (if instrumentation enabled).
     """
 
-    text: str
-    trace_events: list[str] = field(default_factory=list)
-    anchor_index: AnchorIndex | None = None
+    raw_text: str
+    trace_events: list[str]
+    anchor_index: AnchorIndex | None
+
+    def __init__(
+        self,
+        text: str | None = None,
+        trace_events: list[str] | None = None,
+        anchor_index: AnchorIndex | None = None,
+        *,
+        raw_text: str | None = None,
+    ) -> None:
+        """Initialize a RenderedPrompt.
+
+        Args:
+            text: The rendered template output. If it contains anchor
+                sentinels, the `text` property returns it stripped while
+                `raw_text` preserves it verbatim.
+            trace_events: Trace events recorded during rendering.
+            anchor_index: Index of anchor positions in the clean text.
+            raw_text: Keyword-only alias for `text`, accepted so that
+                `dataclasses.replace` (which passes field names back to
+                `__init__`) keeps working. If both are given, `text` wins.
+        """
+        resolved_text = text if text is not None else raw_text
+        if resolved_text is None:
+            raise TypeError("RenderedPrompt() missing required argument: 'text'")
+        self.raw_text = resolved_text
+        self.trace_events = trace_events if trace_events is not None else []
+        self.anchor_index = anchor_index
+        # Compute the sentinel-stripped text once; every helper reads this.
+        # Set after raw_text so the __setattr__ hook does not need to fire here.
+        self._clean_text = (
+            anchor_index.clean_text
+            if anchor_index is not None
+            else ANCHOR_PATTERN.sub("", resolved_text)
+        )
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Keep `_clean_text` synchronized with `raw_text` writes.
+
+        `raw_text` is a public dataclass field, so callers may assign to it
+        directly; this hook recomputes the cached sentinel-stripped text so
+        `text` and every helper built on it never serve stale output. The
+        `_clean_text in __dict__` guard covers `__init__`, which writes
+        `raw_text` before `_clean_text` exists.
+        """
+        object.__setattr__(self, name, value)
+        if name == "raw_text" and "_clean_text" in self.__dict__:
+            object.__setattr__(self, "_clean_text", ANCHOR_PATTERN.sub("", value))
+
+    @property
+    def text(self) -> str:
+        """Get the rendered text with anchor sentinels removed.
+
+        This matches what the template renders in production. Use `raw_text`
+        for the original output including sentinel markers.
+        """
+        return self._clean_text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        """Assign new rendered text.
+
+        Writes through to `raw_text`; the `__setattr__` hook recomputes the
+        cached clean text. `anchor_index`, if present, is left unchanged, so
+        its anchor positions and `clean_text` may be stale relative to the
+        new text.
+        """
+        self.raw_text = value
 
     @property
     def normalized(self) -> str:
         """Get normalized text (whitespace-collapsed, trimmed)."""
-        base_text = self.anchor_index.clean_text if self.anchor_index else self.text
-        return normalize_text(base_text)
+        return normalize_text(self.text)
 
     @property
     def clean_text(self) -> str:
-        """Get text with anchor markers removed (if any)."""
-        if self.anchor_index:
-            return self.anchor_index.clean_text
+        """Alias for `text` (anchor markers removed), kept for back-compat."""
         return self.text
 
     @property
